@@ -52,8 +52,8 @@ This uses the same data as [About this account](https://x.com/zundamotisuki/abou
 
 | Field | Example |
 | --- | --- |
-| **Account based in** | `Japan`, `United States` |
-| **Connected via** | `Japan App Store`, `Canada Android App` |
+| **Account based in** | `India`, `South Asia`, `Nigeria`, `Africa` |
+| **Connected via** | `India App Store`, `Nigeria App Store` |
 
 How it works:
 
@@ -63,6 +63,18 @@ How it works:
 4. No Twitter Developer Portal API keys are required
 
 Configure blocklist/allowlist terms in **Advanced settings**. You can match against based-in, connected-via, or both. Unknown or still-loading accounts default to **show**.
+
+**Suggested spam blocklist** (one line each, expands automatically):
+
+```
+southasia
+africa
+```
+
+- `southasia` — South Asia region plus India, Pakistan, Bangladesh, Sri Lanka, Nepal, Bhutan, Maldives, Afghanistan, and related App Store strings
+- `africa` — Africa / Sub-Saharan Africa plus Nigeria, Ghana, Kenya, Ethiopia, South Africa, Egypt, Morocco, and dozens more countries with related App Store strings
+
+Click **Use suggested spam blocklist** in Advanced settings to apply this with blocklist mode.
 
 ### Advanced settings
 

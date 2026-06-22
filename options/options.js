@@ -11,7 +11,10 @@ const countryMatchFieldsSelect = document.getElementById("countryMatchFields");
 const countryListTextarea = document.getElementById("countryList");
 const countryUnknownSelect = document.getElementById("countryUnknown");
 const saveCountryButton = document.getElementById("saveCountry");
+const useSuggestedBlocklistButton = document.getElementById("useSuggestedBlocklist");
 const countryStatus = document.getElementById("countryStatus");
+
+const SUGGESTED_SPAM_BLOCKLIST = ["southasia", "africa"];
 
 function normalizeWhitelist(text) {
   return [
@@ -149,6 +152,14 @@ if (storage) {
   countryModeSelect.addEventListener("change", saveCountrySettings);
   countryMatchFieldsSelect.addEventListener("change", saveCountrySettings);
   countryUnknownSelect.addEventListener("change", saveCountrySettings);
+
+  useSuggestedBlocklistButton?.addEventListener("click", () => {
+    countryListTextarea.value = formatCountryList(SUGGESTED_SPAM_BLOCKLIST);
+    countryModeSelect.value = "blocklist";
+    countryMatchFieldsSelect.value = "both";
+    countryUnknownSelect.value = "show";
+    saveCountrySettings();
+  });
 
   saveWhitelistButton.addEventListener("click", saveWhitelist);
   saveCountryButton.addEventListener("click", saveCountrySettings);

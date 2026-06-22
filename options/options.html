@@ -42,9 +42,9 @@
         <p class="card-desc">
           Matches the same fields shown on
           <code>/username/about</code>: <strong>Account based in</strong> and
-          <strong>Connected via</strong> (for example “Japan App Store”). Uses
-          your logged-in session — no developer API keys. Lookups are cached and
-          queued slowly to reduce rate limits.
+          <strong>Connected via</strong> (for example “India App Store” or
+          “Nigeria App Store”). Uses your logged-in session — no developer API
+          keys. Lookups are cached and queued slowly to reduce rate limits.
         </p>
         <label class="field" for="countryMode">
           <span class="field-label">Filter mode</span>
@@ -63,13 +63,23 @@
         </label>
         <label class="field" for="countryList">
           <span class="field-label">Countries or regions</span>
+          <span class="field-hint">
+            One per line. Shortcuts: <code>southasia</code> and
+            <code>africa</code> expand to common spam regions, countries, and App
+            Store strings.
+          </span>
           <textarea
             id="countryList"
             class="textarea"
-            rows="6"
-            placeholder="US&#10;India&#10;Japan App Store&#10;Nigeria"
+            rows="8"
+            placeholder="southasia&#10;africa"
           ></textarea>
         </label>
+        <div class="actions">
+          <button type="button" class="button button-secondary" id="useSuggestedBlocklist">
+            Use suggested spam blocklist
+          </button>
+        </div>
         <label class="field" for="countryUnknown">
           <span class="field-label">While About data is loading or missing</span>
           <select id="countryUnknown" class="select">

@@ -58,6 +58,16 @@ header p {
   font-weight: 600;
 }
 
+.field-hint {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #71767b;
+}
+
+.field-hint code {
+  color: #e7e9ea;
+}
+
 .select,
 .textarea {
   width: 100%;
@@ -96,6 +106,16 @@ header p {
 
 .button:hover {
   background: #d7dbdc;
+}
+
+.button-secondary {
+  background: transparent;
+  color: #e7e9ea;
+  border: 1px solid #2f3336;
+}
+
+.button-secondary:hover {
+  background: #16181c;
 }
 
 .status {
