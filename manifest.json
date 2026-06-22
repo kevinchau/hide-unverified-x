@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hide Unverified X",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Filter X posts by verification and location using data already loaded in your browser.",
   "icons": {
     "16": "icons/icon16.png",

@@ -14,7 +14,8 @@ const saveCountryButton = document.getElementById("saveCountry");
 const useSuggestedBlocklistButton = document.getElementById("useSuggestedBlocklist");
 const countryStatus = document.getElementById("countryStatus");
 
-const SUGGESTED_SPAM_BLOCKLIST = ["southasia", "africa"];
+const SUGGESTED_SPAM_BLOCKLIST =
+  globalThis.HUXCountry?.SUGGESTED_SPAM_BLOCKLIST ?? ["southasia", "africa"];
 
 function normalizeWhitelist(text) {
   return [

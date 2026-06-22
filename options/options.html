@@ -64,15 +64,16 @@
         <label class="field" for="countryList">
           <span class="field-label">Countries or regions</span>
           <span class="field-hint">
-            One per line. Shortcuts: <code>southasia</code> and
-            <code>africa</code> expand to common spam regions, countries, and App
-            Store strings.
+            One per line. Shortcuts <code>southasia</code> and
+            <code>africa</code> still work, or click the button below for the
+            full South Asia + Africa spam list (regions, countries, and App Store
+            strings).
           </span>
           <textarea
             id="countryList"
             class="textarea"
-            rows="8"
-            placeholder="southasia&#10;africa"
+            rows="12"
+            placeholder="south asia&#10;india&#10;pakistan&#10;…&#10;africa&#10;nigeria&#10;ghana&#10;…"
           ></textarea>
         </label>
         <div class="actions">
@@ -114,6 +115,7 @@
         </div>
       </section>
     </main>
+    <script src="../country-match.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

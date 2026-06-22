@@ -64,17 +64,12 @@ How it works:
 
 Configure blocklist/allowlist terms in **Advanced settings**. You can match against based-in, connected-via, or both. Unknown or still-loading accounts default to **show**.
 
-**Suggested spam blocklist** (one line each, expands automatically):
+**Suggested spam blocklist** covers common spam regions on X:
 
-```
-southasia
-africa
-```
+- **South Asia** — region plus Afghanistan, Bangladesh, Bhutan, India, Maldives, Nepal, Pakistan, Sri Lanka, and their App Store strings
+- **Africa** — Africa, Sub-Saharan Africa, North Africa, and all 54 African countries (Nigeria, Ghana, Kenya, Ethiopia, South Africa, Egypt, Morocco, etc.) plus common App Store strings
 
-- `southasia` — South Asia region plus India, Pakistan, Bangladesh, Sri Lanka, Nepal, Bhutan, Maldives, Afghanistan, and related App Store strings
-- `africa` — Africa / Sub-Saharan Africa plus Nigeria, Ghana, Kenya, Ethiopia, South Africa, Egypt, Morocco, and dozens more countries with related App Store strings
-
-Click **Use suggested spam blocklist** in Advanced settings to apply this with blocklist mode.
+Shortcuts `southasia` and `africa` still expand automatically. Click **Use suggested spam blocklist** in Advanced settings to paste the full list with blocklist mode.
 
 ### Advanced settings
 
