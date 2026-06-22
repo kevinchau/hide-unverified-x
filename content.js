@@ -26,6 +26,7 @@
     countryMode: "blocklist",
     countryList: [],
     countryUnknown: "show",
+    countryMatchFields: "both",
   };
 
   const SELECTORS = {
@@ -43,10 +44,10 @@
   let observer = null;
   let pendingFrame = null;
   let hiddenCount = 0;
-  const locationCache = new Map();
 
   const storage = globalThis.chrome?.storage?.sync ?? globalThis.browser?.storage?.sync;
   const countryMatcher = globalThis.HUXCountry;
+  const aboutAccount = globalThis.HUXAbout;
 
   function extractHandle(scope) {
     if (!scope) {
@@ -213,56 +214,40 @@
     return countryMatcher?.normalizeTerms(settings.countryList) ?? [];
   }
 
-  function getLocationEntry(handle) {
+  function ensureAboutAccountLookup(handle, context) {
+    if (!handle || !isCountryFilterEnabled(context)) {
+      return;
+    }
+
+    aboutAccount?.enqueue(handle);
+  }
+
+  function getAboutEntry(handle) {
     if (!handle) {
       return null;
     }
 
-    return locationCache.get(handle.toLowerCase()) ?? null;
+    return aboutAccount?.get(handle.toLowerCase()) ?? null;
   }
 
-  function upsertLocationEntry(handle, location, basedIn) {
-    if (!handle) {
-      return;
-    }
-
-    const key = handle.toLowerCase();
-    const current = locationCache.get(key) ?? {
-      location: "",
-      basedIn: "",
-    };
-
-    const next = {
-      location: location || current.location,
-      basedIn: basedIn || current.basedIn,
-    };
-
-    if (
-      next.location === current.location &&
-      next.basedIn === current.basedIn
-    ) {
-      return;
-    }
-
-    locationCache.set(key, next);
-    scheduleProcess();
-  }
-
-  function getCountryFilterDecision(handle) {
+  function getCountryFilterDecision(handle, context) {
     const terms = getCountryTerms();
     if (!terms.length) {
       return false;
     }
 
-    const entry = getLocationEntry(handle);
-    if (!entry) {
+    ensureAboutAccountLookup(handle, context);
+
+    const entry = getAboutEntry(handle);
+    if (!entry || entry.status === "pending") {
       return settings.countryUnknown === "hide";
     }
 
-    const decision = countryMatcher?.shouldHideByCountry(
+    const decision = countryMatcher?.shouldHideByAccount(
       entry,
       terms,
-      settings.countryMode
+      settings.countryMode,
+      settings.countryMatchFields
     );
 
     if (decision === null) {
@@ -346,19 +331,21 @@
     storage.set({ whitelist: [...settings.whitelist, normalized] });
   }
 
-  function buildPlaceholderLabel(handle, reason, locationText) {
-    if (reason === "country" && locationText) {
-      return `Post from @${handle} hidden (${locationText})`;
+  function buildPlaceholderLabel(handle, reason, accountText) {
+    if (reason === "country" && accountText) {
+      return `Post from @${handle} hidden (${accountText})`;
     }
 
     if (reason === "country") {
-      return handle ? `Post from @${handle} hidden (location)` : "Post hidden (location)";
+      return handle
+        ? `Post from @${handle} hidden (about account)`
+        : "Post hidden (about account)";
     }
 
     return handle ? `Post from @${handle} hidden` : "Unverified post hidden";
   }
 
-  function createPlaceholder(tweet, handle, reason, locationText) {
+  function createPlaceholder(tweet, handle, reason, accountText) {
     removePlaceholder(tweet);
 
     const placeholder = document.createElement("div");
@@ -367,7 +354,7 @@
 
     const label = document.createElement("span");
     label.className = "hux-placeholder-label";
-    label.textContent = buildPlaceholderLabel(handle, reason, locationText);
+    label.textContent = buildPlaceholderLabel(handle, reason, accountText);
 
     const actions = document.createElement("div");
     actions.className = "hux-placeholder-actions";
@@ -402,7 +389,7 @@
     return placeholder;
   }
 
-  function applyHiddenState(tweet, context, handle, reason, locationText) {
+  function applyHiddenState(tweet, context, handle, reason, accountText) {
     const target = getHideTarget(tweet);
     const wasFiltered =
       target.hasAttribute(HIDDEN_ATTR) || tweet.hasAttribute(DIMMED_ATTR);
@@ -413,7 +400,7 @@
     tweet.setAttribute(CONTEXT_ATTR, context);
 
     if (settings.showPlaceholders) {
-      createPlaceholder(tweet, handle, reason, locationText);
+      createPlaceholder(tweet, handle, reason, accountText);
     } else {
       removePlaceholder(tweet);
     }
@@ -457,13 +444,13 @@
       isVerificationFilterEnabled(context) &&
       !isVerifiedScope(authorScope)
     ) {
-      return { reason: "unverified", handle, locationText: "" };
+      return { reason: "unverified", handle, accountText: "" };
     }
 
-    if (isCountryFilterEnabled(context) && getCountryFilterDecision(handle)) {
-      const entry = getLocationEntry(handle);
-      const locationText = countryMatcher?.getLocationText(entry) ?? "";
-      return { reason: "country", handle, locationText };
+    if (isCountryFilterEnabled(context) && getCountryFilterDecision(handle, context)) {
+      const entry = getAboutEntry(handle);
+      const accountText = countryMatcher?.formatAccountLabel(entry) ?? "";
+      return { reason: "country", handle, accountText };
     }
 
     return null;
@@ -488,7 +475,7 @@
       context,
       decision.handle,
       decision.reason,
-      decision.locationText
+      decision.accountText
     );
   }
 
@@ -632,6 +619,11 @@
       countryList: normalizeCountryList(result.countryList),
       countryUnknown:
         result.countryUnknown === "hide" ? "hide" : "show",
+      countryMatchFields:
+        result.countryMatchFields === "basedIn" ||
+        result.countryMatchFields === "connectedVia"
+          ? result.countryMatchFields
+          : "both",
     };
   }
 
@@ -652,21 +644,28 @@
     });
   }
 
-  function handleLocationMessage(event) {
+  function handlePageMessage(event) {
     if (
       event.source !== window ||
       event.origin !== window.location.origin ||
-      event.data?.source !== MESSAGE_SOURCE ||
-      event.data?.type !== "hux-user-location"
+      event.data?.source !== MESSAGE_SOURCE
     ) {
       return;
     }
 
-    upsertLocationEntry(
-      event.data.handle,
-      event.data.location,
-      event.data.basedIn
-    );
+    if (event.data.type === "hux-about-query-id") {
+      aboutAccount?.setQueryId(event.data.queryId);
+      return;
+    }
+
+    if (event.data.type === "hux-about-account") {
+      aboutAccount?.upsertFromInterceptor(
+        event.data.handle,
+        event.data.basedIn,
+        event.data.connectedVia,
+        event.data.accurate
+      );
+    }
   }
 
   if (storage?.onChanged) {
@@ -703,14 +702,21 @@
     });
   }
 
-  function init() {
-    window.addEventListener("message", handleLocationMessage);
+  let initialized = false;
 
+  function init() {
     if (!document.body) {
       document.addEventListener("DOMContentLoaded", init, { once: true });
       return;
     }
 
+    if (initialized) {
+      return;
+    }
+
+    initialized = true;
+    window.addEventListener("message", handlePageMessage);
+    aboutAccount?.init(() => scheduleProcess());
     loadSettings();
   }
 

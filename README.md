@@ -1,17 +1,17 @@
 # Hide Unverified X
 
-A lightweight browser extension for **Chrome** and **Firefox** that hides posts and replies from accounts without a blue check on [X](https://x.com).
+A lightweight browser extension for **Chrome** and **Firefox** that filters posts on [X](https://x.com) by verification status and **About this account** metadata.
 
-No accounts. No tracking. Everything runs locally in your browser.
+No developer API keys. Everything runs locally in your browser.
 
 ## Features
 
 - Hides or dims unverified posts and replies
 - Separate toggles for **For you**, **Following**, and **Replies**
 - **Verification rules** — blue check only or any badge; choose author for retweets and quote tweets
+- **About-account filter** — match **Account based in** and **Connected via** from `/username/about`
 - **Softer UX** — placeholder cards with **Show once** and **Always show**, plus per-tab hidden count
 - **Whitelist** — always show specific accounts
-- **Country filter** — block or allow locations using data X already loads (no API keys, no extra requests)
 - Manifest V3, compatible with Chrome and Firefox
 
 ## Install
@@ -38,26 +38,31 @@ No accounts. No tracking. Everything runs locally in your browser.
 
 | Setting | What it does |
 | --- | --- |
-| **For you** | Filter recommended home timeline posts |
-| **Following** | Filter posts from accounts you follow |
-| **Replies** | Filter reply posts across X |
+| **For you / Following / Replies** | Verification filtering per context |
+| **About-account filter** | Filter For you / Replies using About this account data |
 | **Count as verified** | Blue check only, or any badge (gold/gray included) |
 | **Hide / Dim** | Remove posts entirely, or fade them out |
 | **Placeholder cards** | Show a slim bar with reveal actions when hiding |
-| **Country filter (For you / Replies)** | Filter by profile location from timeline data |
 
 The popup also shows how many posts are hidden in the current X tab.
 
-### Country filter (free, no rate limits)
+### About-account filter
 
-This does **not** call `AboutAccountQuery` or create API keys. Instead, a page interceptor
-reads user location fields from GraphQL responses X already fetches for your feed:
+This uses the same data as [About this account](https://x.com/zundamotisuki/about):
 
-- `legacy.location` — the profile location text users set themselves
-- `about_profile.account_based_in` — when X includes it in a response
+| Field | Example |
+| --- | --- |
+| **Account based in** | `Japan`, `United States` |
+| **Connected via** | `Japan App Store`, `Canada Android App` |
 
-Configure countries in **Advanced settings** (blocklist or allowlist). Unknown locations
-default to **show** so posts are not hidden without data.
+How it works:
+
+1. When you visit an `/about` page, responses are captured passively (no extra request)
+2. For feed authors without cached data, the extension calls X's internal `AboutAccountQuery` using your existing login session
+3. Results are cached locally and queued slowly (~1.5s apart) to reduce rate limits
+4. No Twitter Developer Portal API keys are required
+
+Configure blocklist/allowlist terms in **Advanced settings**. You can match against based-in, connected-via, or both. Unknown or still-loading accounts default to **show**.
 
 ### Advanced settings
 
@@ -67,6 +72,7 @@ Open **Advanced settings** from the popup, or right-click the extension icon →
 | --- | --- |
 | **Retweets** | Filter based on the original author or the person who reposted |
 | **Quote tweets** | Filter based on the quoter or the quoted author |
+| **About-account filter** | Blocklist/allowlist, match fields, unknown-account behavior |
 | **Whitelist** | Handles that are always shown, one per line |
 
 Placeholder actions:
@@ -77,20 +83,18 @@ Placeholder actions:
 ## How it works
 
 1. A content script watches for new `article[data-testid="tweet"]` elements
-2. It determines context (For you, Following, Replies, or other)
-3. It resolves the relevant author based on your retweet/quote settings
-4. It checks for a verification badge in that author's name row
-5. Unverified posts are hidden or dimmed; optional placeholder cards offer reveal actions
-
-Profiles, search, and other pages are not filtered yet.
+2. Verification is checked from the tweet DOM (badge SVG)
+3. About-account data is fetched via `AboutAccountQuery` or intercepted from `/about` page loads
+4. Unverified or blocked posts are hidden or dimmed; optional placeholder cards offer reveal actions
 
 ## Project structure
 
 ```
 hide-unverified-x/
 ├── manifest.json
-├── page-interceptor.js  # Reads location data from existing GraphQL responses
-├── country-match.js     # Country text matching helpers
+├── page-interceptor.js  # Captures AboutAccountQuery responses in-page
+├── about-account.js     # Cached AboutAccountQuery lookups
+├── country-match.js     # Blocklist/allowlist matching helpers
 ├── background.js        # Per-tab hidden count relay
 ├── content.js           # Tweet filtering logic
 ├── content.css
@@ -101,7 +105,7 @@ hide-unverified-x/
 
 ## Privacy
 
-This extension does not collect, transmit, or store any personal data beyond your settings and whitelist, saved locally via `chrome.storage.sync`.
+This extension does not collect, transmit, or store any personal data beyond your settings, whitelist, and locally cached About-account lookups.
 
 ## License
 

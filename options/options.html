@@ -38,37 +38,47 @@
       </section>
 
       <section class="card">
-        <h2>Country filter</h2>
+        <h2>About-account filter</h2>
         <p class="card-desc">
-          Location data is read from timeline responses X already loads in your
-          browser (profile location text, and “based in” when present). No API
-          keys and no extra requests.
+          Matches the same fields shown on
+          <code>/username/about</code>: <strong>Account based in</strong> and
+          <strong>Connected via</strong> (for example “Japan App Store”). Uses
+          your logged-in session — no developer API keys. Lookups are cached and
+          queued slowly to reduce rate limits.
         </p>
         <label class="field" for="countryMode">
           <span class="field-label">Filter mode</span>
           <select id="countryMode" class="select">
-            <option value="blocklist">Blocklist — hide matching locations</option>
-            <option value="allowlist">Allowlist — only show matching locations</option>
+            <option value="blocklist">Blocklist — hide matching accounts</option>
+            <option value="allowlist">Allowlist — only show matching accounts</option>
+          </select>
+        </label>
+        <label class="field" for="countryMatchFields">
+          <span class="field-label">Match against</span>
+          <select id="countryMatchFields" class="select">
+            <option value="both">Account based in and Connected via</option>
+            <option value="basedIn">Account based in only</option>
+            <option value="connectedVia">Connected via only</option>
           </select>
         </label>
         <label class="field" for="countryList">
-          <span class="field-label">Countries</span>
+          <span class="field-label">Countries or regions</span>
           <textarea
             id="countryList"
             class="textarea"
             rows="6"
-            placeholder="US&#10;India&#10;Nigeria&#10;Philippines"
+            placeholder="US&#10;India&#10;Japan App Store&#10;Nigeria"
           ></textarea>
         </label>
         <label class="field" for="countryUnknown">
-          <span class="field-label">When location is unknown</span>
+          <span class="field-label">While About data is loading or missing</span>
           <select id="countryUnknown" class="select">
             <option value="show">Show post</option>
             <option value="hide">Hide post</option>
           </select>
         </label>
         <div class="actions">
-          <button type="button" class="button" id="saveCountry">Save country settings</button>
+          <button type="button" class="button" id="saveCountry">Save about-account settings</button>
           <span class="status" id="countryStatus" aria-live="polite"></span>
         </div>
       </section>

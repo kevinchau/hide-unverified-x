@@ -74,27 +74,60 @@
     return [...expanded];
   }
 
-  function getLocationText(entry) {
-    if (!entry) {
-      return "";
-    }
-
-    return (entry.basedIn || entry.location || "").trim();
-  }
-
   function textMatchesTerms(text, terms) {
     const haystack = text.toLowerCase();
     return terms.some((term) => haystack.includes(term));
   }
 
-  function shouldHideByCountry(entry, terms, mode) {
-    const locationText = getLocationText(entry);
+  function getSearchTexts(entry, fields) {
+    const texts = [];
 
-    if (!locationText) {
+    if (fields === "basedIn" || fields === "both") {
+      if (entry.basedIn) {
+        texts.push(entry.basedIn);
+      }
+    }
+
+    if (fields === "connectedVia" || fields === "both") {
+      if (entry.connectedVia) {
+        texts.push(entry.connectedVia);
+      }
+    }
+
+    return texts;
+  }
+
+  function formatAccountLabel(entry) {
+    if (!entry) {
+      return "";
+    }
+
+    const parts = [];
+    if (entry.basedIn) {
+      parts.push(`Based in ${entry.basedIn}`);
+    }
+    if (entry.connectedVia) {
+      parts.push(`Connected via ${entry.connectedVia}`);
+    }
+
+    return parts.join(" · ");
+  }
+
+  function shouldHideByAccount(entry, terms, mode, fields) {
+    if (!entry || entry.status !== "resolved") {
       return null;
     }
 
-    const matched = textMatchesTerms(locationText, terms);
+    if (entry.empty) {
+      return null;
+    }
+
+    const texts = getSearchTexts(entry, fields);
+    if (!texts.length) {
+      return null;
+    }
+
+    const matched = texts.some((text) => textMatchesTerms(text, terms));
 
     if (mode === "allowlist") {
       return !matched;
@@ -105,7 +138,7 @@
 
   globalThis.HUXCountry = {
     normalizeTerms,
-    getLocationText,
-    shouldHideByCountry,
+    formatAccountLabel,
+    shouldHideByAccount,
   };
 })();

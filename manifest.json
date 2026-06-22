@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hide Unverified X",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Filter X posts by verification and location using data already loaded in your browser.",
   "icons": {
     "16": "icons/icon16.png",
@@ -33,7 +33,7 @@
         "https://x.com/*",
         "https://twitter.com/*"
       ],
-      "js": ["country-match.js", "content.js"],
+      "js": ["country-match.js", "about-account.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }

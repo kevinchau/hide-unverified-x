@@ -3,119 +3,81 @@
 
   const MESSAGE_SOURCE = "hide-unverified-x";
 
-  const GRAPHQL_OPERATIONS = [
-    "HomeTimeline",
-    "HomeLatestTimeline",
-    "TweetDetail",
-    "TweetResultByRestId",
-    "SearchTimeline",
-    "UserTweets",
-    "UserTweetsAndReplies",
-    "ListLatestTweetsTimeline",
-    "Likes",
-    "Bookmarks",
-    "AboutAccountQuery",
-  ];
-
-  function shouldInspectUrl(url) {
-    if (!url || !url.includes("/i/api/graphql/")) {
-      return false;
-    }
-
-    return GRAPHQL_OPERATIONS.some((operation) => url.includes(operation));
-  }
-
-  function readBasedIn(user) {
-    const about =
-      user.about_profile ||
-      user.aboutProfile ||
-      user.about_module?.about_profile ||
-      user.aboutModule?.aboutProfile ||
-      null;
-
-    if (!about) {
-      return "";
-    }
-
-    return about.account_based_in || about.accountBasedIn || "";
-  }
-
-  function publishUser(handle, location, basedIn) {
-    if (!handle) {
-      return;
-    }
-
+  function publish(message) {
     window.postMessage(
       {
         source: MESSAGE_SOURCE,
-        type: "hux-user-location",
-        handle: handle.toLowerCase(),
-        location: location || "",
-        basedIn: basedIn || "",
+        ...message,
       },
       window.location.origin
     );
   }
 
-  function collectUsers(node, seen, emit) {
-    if (!node || typeof node !== "object") {
-      return;
+  function readAboutProfile(result) {
+    const about = result?.about_profile || result?.aboutProfile || null;
+    if (!about) {
+      return null;
     }
 
-    if (Array.isArray(node)) {
-      for (const item of node) {
-        collectUsers(item, seen, emit);
-      }
-      return;
-    }
-
-    const legacy = node.legacy;
-    const screenName = legacy?.screen_name || legacy?.screenName;
-
-    if (screenName) {
-      const handle = String(screenName).toLowerCase();
-      const location = legacy?.location || "";
-      const basedIn = readBasedIn(node);
-
-      if (!seen.has(handle) || location || basedIn) {
-        seen.set(handle, { location, basedIn });
-        emit(handle, location, basedIn);
-      }
-    }
-
-    if (node.user_results?.result) {
-      collectUsers(node.user_results.result, seen, emit);
-    }
-
-    if (node.user_result?.result) {
-      collectUsers(node.user_result.result, seen, emit);
-    }
-
-    if (node.user_result_by_screen_name?.result) {
-      collectUsers(node.user_result_by_screen_name.result, seen, emit);
-    }
-
-    for (const value of Object.values(node)) {
-      if (value && typeof value === "object") {
-        collectUsers(value, seen, emit);
-      }
-    }
+    return {
+      basedIn: about.account_based_in || about.accountBasedIn || "",
+      connectedVia: about.source || "",
+      accurate: about.location_accurate !== false,
+    };
   }
 
-  function handleGraphqlPayload(payload) {
-    const seen = new Map();
-    collectUsers(payload, seen, publishUser);
+  function readHandle(result) {
+    return (
+      result?.core?.screen_name ||
+      result?.legacy?.screen_name ||
+      result?.legacy?.screenName ||
+      ""
+    );
+  }
+
+  function handleAboutAccountPayload(payload, url) {
+    const queryMatch = url.match(/\/graphql\/([^/]+)\/AboutAccountQuery/);
+    if (queryMatch?.[1]) {
+      publish({
+        type: "hux-about-query-id",
+        queryId: queryMatch[1],
+      });
+    }
+
+    const result =
+      payload?.data?.user_result_by_screen_name?.result ||
+      payload?.data?.user_result?.result ||
+      payload?.data?.user?.result ||
+      null;
+
+    if (!result) {
+      return;
+    }
+
+    const handle = readHandle(result);
+    const about = readAboutProfile(result);
+    if (!handle || !about) {
+      return;
+    }
+
+    publish({
+      type: "hux-about-account",
+      handle: handle.toLowerCase(),
+      basedIn: about.basedIn,
+      connectedVia: about.connectedVia,
+      accurate: about.accurate,
+    });
   }
 
   function inspectResponse(response, url) {
-    if (!shouldInspectUrl(url)) {
+    if (!url || !url.includes("/i/api/graphql/") || !url.includes("AboutAccountQuery")) {
       return;
     }
 
     response
       .clone()
       .json()
-      .then(handleGraphqlPayload)
+      .then((payload) => handleAboutAccountPayload(payload, url))
       .catch(() => {});
   }
 

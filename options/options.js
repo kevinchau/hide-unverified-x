@@ -7,6 +7,7 @@ const saveWhitelistButton = document.getElementById("saveWhitelist");
 const saveStatus = document.getElementById("saveStatus");
 
 const countryModeSelect = document.getElementById("countryMode");
+const countryMatchFieldsSelect = document.getElementById("countryMatchFields");
 const countryListTextarea = document.getElementById("countryList");
 const countryUnknownSelect = document.getElementById("countryUnknown");
 const saveCountryButton = document.getElementById("saveCountry");
@@ -82,12 +83,13 @@ function saveCountrySettings() {
   storage.set(
     {
       countryMode: countryModeSelect.value,
+      countryMatchFields: countryMatchFieldsSelect.value,
       countryList,
       countryUnknown: countryUnknownSelect.value,
     },
     () => {
       countryListTextarea.value = formatCountryList(countryList);
-      setStatus(countryStatus, "Country settings saved");
+      setStatus(countryStatus, "About-account settings saved");
     }
   );
 }
@@ -99,6 +101,7 @@ if (storage) {
       quoteAuthor: "quoter",
       whitelist: [],
       countryMode: "blocklist",
+      countryMatchFields: "both",
       countryList: [],
       countryUnknown: "show",
     },
@@ -112,6 +115,11 @@ if (storage) {
       );
       countryModeSelect.value =
         result.countryMode === "allowlist" ? "allowlist" : "blocklist";
+      countryMatchFieldsSelect.value =
+        result.countryMatchFields === "basedIn" ||
+        result.countryMatchFields === "connectedVia"
+          ? result.countryMatchFields
+          : "both";
       countryListTextarea.value = formatCountryList(
         Array.isArray(result.countryList) ? result.countryList : []
       );
@@ -139,6 +147,7 @@ if (storage) {
   });
 
   countryModeSelect.addEventListener("change", saveCountrySettings);
+  countryMatchFieldsSelect.addEventListener("change", saveCountrySettings);
   countryUnknownSelect.addEventListener("change", saveCountrySettings);
 
   saveWhitelistButton.addEventListener("click", saveWhitelist);
