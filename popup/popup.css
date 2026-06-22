@@ -59,6 +59,13 @@ header p {
   color: #71767b;
 }
 
+.section-note {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #71767b;
+}
+
 .toggle-group {
   display: flex;
   flex-direction: column;

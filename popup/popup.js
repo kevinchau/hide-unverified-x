@@ -7,7 +7,14 @@ const DEFAULTS = {
   showPlaceholders: true,
 };
 
-const BOOL_KEYS = ["forYou", "following", "replies", "showPlaceholders"];
+const BOOL_KEYS = [
+  "forYou",
+  "following",
+  "replies",
+  "showPlaceholders",
+  "countryForYou",
+  "countryReplies",
+];
 const storage = globalThis.chrome?.storage?.sync ?? globalThis.browser?.storage?.sync;
 const sessionStorage =
   globalThis.chrome?.storage?.session ?? globalThis.browser?.storage?.session;
@@ -39,6 +46,8 @@ function normalizeStoredSettings(result) {
         typeof result.showPlaceholders === "boolean"
           ? result.showPlaceholders
           : DEFAULTS.showPlaceholders,
+      countryForYou: result.countryForYou === true,
+      countryReplies: result.countryReplies === true,
     };
   }
 
@@ -94,6 +103,8 @@ function saveSettings() {
     forYou: boolInputs.forYou.checked,
     following: boolInputs.following.checked,
     replies: boolInputs.replies.checked,
+    countryForYou: boolInputs.countryForYou.checked,
+    countryReplies: boolInputs.countryReplies.checked,
     badgeType: badgeTypeSelect.value,
     displayMode,
     showPlaceholders: boolInputs.showPlaceholders.checked,
@@ -104,6 +115,8 @@ function applySettings(values) {
   boolInputs.forYou.checked = values.forYou;
   boolInputs.following.checked = values.following;
   boolInputs.replies.checked = values.replies;
+  boolInputs.countryForYou.checked = values.countryForYou === true;
+  boolInputs.countryReplies.checked = values.countryReplies === true;
   boolInputs.showPlaceholders.checked = values.showPlaceholders;
   badgeTypeSelect.value = values.badgeType;
 

@@ -11,6 +11,7 @@ No accounts. No tracking. Everything runs locally in your browser.
 - **Verification rules** — blue check only or any badge; choose author for retweets and quote tweets
 - **Softer UX** — placeholder cards with **Show once** and **Always show**, plus per-tab hidden count
 - **Whitelist** — always show specific accounts
+- **Country filter** — block or allow locations using data X already loads (no API keys, no extra requests)
 - Manifest V3, compatible with Chrome and Firefox
 
 ## Install
@@ -43,8 +44,20 @@ No accounts. No tracking. Everything runs locally in your browser.
 | **Count as verified** | Blue check only, or any badge (gold/gray included) |
 | **Hide / Dim** | Remove posts entirely, or fade them out |
 | **Placeholder cards** | Show a slim bar with reveal actions when hiding |
+| **Country filter (For you / Replies)** | Filter by profile location from timeline data |
 
 The popup also shows how many posts are hidden in the current X tab.
+
+### Country filter (free, no rate limits)
+
+This does **not** call `AboutAccountQuery` or create API keys. Instead, a page interceptor
+reads user location fields from GraphQL responses X already fetches for your feed:
+
+- `legacy.location` — the profile location text users set themselves
+- `about_profile.account_based_in` — when X includes it in a response
+
+Configure countries in **Advanced settings** (blocklist or allowlist). Unknown locations
+default to **show** so posts are not hidden without data.
 
 ### Advanced settings
 
@@ -76,11 +89,13 @@ Profiles, search, and other pages are not filtered yet.
 ```
 hide-unverified-x/
 ├── manifest.json
-├── background.js    # Per-tab hidden count relay
-├── content.js         # Tweet filtering logic
+├── page-interceptor.js  # Reads location data from existing GraphQL responses
+├── country-match.js     # Country text matching helpers
+├── background.js        # Per-tab hidden count relay
+├── content.js           # Tweet filtering logic
 ├── content.css
-├── popup/             # Quick settings
-├── options/           # Advanced settings
+├── popup/               # Quick settings
+├── options/             # Advanced settings
 └── icons/
 ```
 

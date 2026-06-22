@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  const MESSAGE_SOURCE = "hide-unverified-x";
+
   const PROCESSED_ATTR = "data-hux-processed";
   const HIDDEN_ATTR = "data-hux-hidden";
   const DIMMED_ATTR = "data-hux-dimmed";
@@ -19,6 +21,11 @@
     displayMode: "hide",
     showPlaceholders: true,
     whitelist: [],
+    countryForYou: false,
+    countryReplies: false,
+    countryMode: "blocklist",
+    countryList: [],
+    countryUnknown: "show",
   };
 
   const SELECTORS = {
@@ -36,8 +43,10 @@
   let observer = null;
   let pendingFrame = null;
   let hiddenCount = 0;
+  const locationCache = new Map();
 
   const storage = globalThis.chrome?.storage?.sync ?? globalThis.browser?.storage?.sync;
+  const countryMatcher = globalThis.HUXCountry;
 
   function extractHandle(scope) {
     if (!scope) {
@@ -186,8 +195,81 @@
     return "other";
   }
 
-  function isFilteringEnabledForContext(context) {
+  function isVerificationFilterEnabled(context) {
     return context !== "other" && settings[context] === true;
+  }
+
+  function isCountryFilterEnabled(context) {
+    if (context === "forYou") {
+      return settings.countryForYou;
+    }
+    if (context === "replies") {
+      return settings.countryReplies;
+    }
+    return false;
+  }
+
+  function getCountryTerms() {
+    return countryMatcher?.normalizeTerms(settings.countryList) ?? [];
+  }
+
+  function getLocationEntry(handle) {
+    if (!handle) {
+      return null;
+    }
+
+    return locationCache.get(handle.toLowerCase()) ?? null;
+  }
+
+  function upsertLocationEntry(handle, location, basedIn) {
+    if (!handle) {
+      return;
+    }
+
+    const key = handle.toLowerCase();
+    const current = locationCache.get(key) ?? {
+      location: "",
+      basedIn: "",
+    };
+
+    const next = {
+      location: location || current.location,
+      basedIn: basedIn || current.basedIn,
+    };
+
+    if (
+      next.location === current.location &&
+      next.basedIn === current.basedIn
+    ) {
+      return;
+    }
+
+    locationCache.set(key, next);
+    scheduleProcess();
+  }
+
+  function getCountryFilterDecision(handle) {
+    const terms = getCountryTerms();
+    if (!terms.length) {
+      return false;
+    }
+
+    const entry = getLocationEntry(handle);
+    if (!entry) {
+      return settings.countryUnknown === "hide";
+    }
+
+    const decision = countryMatcher?.shouldHideByCountry(
+      entry,
+      terms,
+      settings.countryMode
+    );
+
+    if (decision === null) {
+      return settings.countryUnknown === "hide";
+    }
+
+    return decision;
   }
 
   function getHideTarget(tweet) {
@@ -264,7 +346,19 @@
     storage.set({ whitelist: [...settings.whitelist, normalized] });
   }
 
-  function createPlaceholder(tweet, handle) {
+  function buildPlaceholderLabel(handle, reason, locationText) {
+    if (reason === "country" && locationText) {
+      return `Post from @${handle} hidden (${locationText})`;
+    }
+
+    if (reason === "country") {
+      return handle ? `Post from @${handle} hidden (location)` : "Post hidden (location)";
+    }
+
+    return handle ? `Post from @${handle} hidden` : "Unverified post hidden";
+  }
+
+  function createPlaceholder(tweet, handle, reason, locationText) {
     removePlaceholder(tweet);
 
     const placeholder = document.createElement("div");
@@ -273,9 +367,7 @@
 
     const label = document.createElement("span");
     label.className = "hux-placeholder-label";
-    label.textContent = handle
-      ? `Post from @${handle} hidden`
-      : "Unverified post hidden";
+    label.textContent = buildPlaceholderLabel(handle, reason, locationText);
 
     const actions = document.createElement("div");
     actions.className = "hux-placeholder-actions";
@@ -291,7 +383,8 @@
 
     const alwaysShowButton = document.createElement("button");
     alwaysShowButton.type = "button";
-    alwaysShowButton.className = "hux-placeholder-button hux-placeholder-button-secondary";
+    alwaysShowButton.className =
+      "hux-placeholder-button hux-placeholder-button-secondary";
     alwaysShowButton.textContent = "Always show";
     alwaysShowButton.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -309,7 +402,7 @@
     return placeholder;
   }
 
-  function applyHiddenState(tweet, context, handle) {
+  function applyHiddenState(tweet, context, handle, reason, locationText) {
     const target = getHideTarget(tweet);
     const wasFiltered =
       target.hasAttribute(HIDDEN_ATTR) || tweet.hasAttribute(DIMMED_ATTR);
@@ -320,7 +413,7 @@
     tweet.setAttribute(CONTEXT_ATTR, context);
 
     if (settings.showPlaceholders) {
-      createPlaceholder(tweet, handle);
+      createPlaceholder(tweet, handle, reason, locationText);
     } else {
       removePlaceholder(tweet);
     }
@@ -347,42 +440,56 @@
     }
   }
 
-  function shouldFilterTweet(tweet) {
+  function getFilterDecision(tweet) {
     if (tweet.hasAttribute(REVEALED_ATTR)) {
-      return false;
+      return null;
     }
 
     const context = getTweetContext(tweet);
-    if (!isFilteringEnabledForContext(context)) {
-      return false;
-    }
-
     const authorScope = getAuthorScope(tweet);
     const handle = extractHandle(authorScope);
 
     if (isWhitelisted(handle)) {
-      return false;
+      return null;
     }
 
-    return !isVerifiedScope(authorScope);
+    if (
+      isVerificationFilterEnabled(context) &&
+      !isVerifiedScope(authorScope)
+    ) {
+      return { reason: "unverified", handle, locationText: "" };
+    }
+
+    if (isCountryFilterEnabled(context) && getCountryFilterDecision(handle)) {
+      const entry = getLocationEntry(handle);
+      const locationText = countryMatcher?.getLocationText(entry) ?? "";
+      return { reason: "country", handle, locationText };
+    }
+
+    return null;
   }
 
   function processTweet(tweet) {
     const context = getTweetContext(tweet);
+    const decision = getFilterDecision(tweet);
 
-    if (!shouldFilterTweet(tweet)) {
+    if (!decision) {
       clearFilteredState(tweet, context);
       return;
     }
-
-    const handle = extractHandle(getAuthorScope(tweet));
 
     if (settings.displayMode === "dim") {
       applyDimmedState(tweet, context);
       return;
     }
 
-    applyHiddenState(tweet, context, handle);
+    applyHiddenState(
+      tweet,
+      context,
+      decision.handle,
+      decision.reason,
+      decision.locationText
+    );
   }
 
   function processTweets(root = document) {
@@ -467,6 +574,22 @@
     ];
   }
 
+  function normalizeCountryList(value) {
+    if (!Array.isArray(value)) {
+      if (typeof value === "string") {
+        return value
+          .split(/[\n,]/)
+          .map((entry) => entry.trim())
+          .filter(Boolean);
+      }
+      return [];
+    }
+
+    return value
+      .map((entry) => String(entry).trim())
+      .filter(Boolean);
+  }
+
   function normalizeStoredSettings(result) {
     const hasContextSettings = ["forYou", "following", "replies"].some(
       (key) => typeof result[key] === "boolean"
@@ -503,6 +626,12 @@
           ? result.showPlaceholders
           : DEFAULT_SETTINGS.showPlaceholders,
       whitelist: normalizeWhitelist(result.whitelist),
+      countryForYou: result.countryForYou === true,
+      countryReplies: result.countryReplies === true,
+      countryMode: result.countryMode === "allowlist" ? "allowlist" : "blocklist",
+      countryList: normalizeCountryList(result.countryList),
+      countryUnknown:
+        result.countryUnknown === "hide" ? "hide" : "show",
     };
   }
 
@@ -523,13 +652,34 @@
     });
   }
 
+  function handleLocationMessage(event) {
+    if (
+      event.source !== window ||
+      event.origin !== window.location.origin ||
+      event.data?.source !== MESSAGE_SOURCE ||
+      event.data?.type !== "hux-user-location"
+    ) {
+      return;
+    }
+
+    upsertLocationEntry(
+      event.data.handle,
+      event.data.location,
+      event.data.basedIn
+    );
+  }
+
   if (storage?.onChanged) {
     storage.onChanged.addListener((changes, area) => {
       if (area !== "sync") {
         return;
       }
 
-      const nextSettings = { ...settings, whitelist: [...settings.whitelist] };
+      const nextSettings = {
+        ...settings,
+        whitelist: [...settings.whitelist],
+        countryList: [...settings.countryList],
+      };
       let changed = false;
 
       for (const key of Object.keys(DEFAULT_SETTINGS)) {
@@ -540,6 +690,8 @@
         changed = true;
         if (key === "whitelist") {
           nextSettings.whitelist = normalizeWhitelist(changes[key].newValue);
+        } else if (key === "countryList") {
+          nextSettings.countryList = normalizeCountryList(changes[key].newValue);
         } else {
           nextSettings[key] = changes[key].newValue;
         }
@@ -552,6 +704,8 @@
   }
 
   function init() {
+    window.addEventListener("message", handleLocationMessage);
+
     if (!document.body) {
       document.addEventListener("DOMContentLoaded", init, { once: true });
       return;

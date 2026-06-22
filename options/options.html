@@ -38,6 +38,42 @@
       </section>
 
       <section class="card">
+        <h2>Country filter</h2>
+        <p class="card-desc">
+          Location data is read from timeline responses X already loads in your
+          browser (profile location text, and “based in” when present). No API
+          keys and no extra requests.
+        </p>
+        <label class="field" for="countryMode">
+          <span class="field-label">Filter mode</span>
+          <select id="countryMode" class="select">
+            <option value="blocklist">Blocklist — hide matching locations</option>
+            <option value="allowlist">Allowlist — only show matching locations</option>
+          </select>
+        </label>
+        <label class="field" for="countryList">
+          <span class="field-label">Countries</span>
+          <textarea
+            id="countryList"
+            class="textarea"
+            rows="6"
+            placeholder="US&#10;India&#10;Nigeria&#10;Philippines"
+          ></textarea>
+        </label>
+        <label class="field" for="countryUnknown">
+          <span class="field-label">When location is unknown</span>
+          <select id="countryUnknown" class="select">
+            <option value="show">Show post</option>
+            <option value="hide">Hide post</option>
+          </select>
+        </label>
+        <div class="actions">
+          <button type="button" class="button" id="saveCountry">Save country settings</button>
+          <span class="status" id="countryStatus" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="card">
         <h2>Whitelist</h2>
         <p class="card-desc">
           These accounts are always shown, even without a verification badge.
