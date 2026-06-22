@@ -111,17 +111,69 @@
     return getPrimaryUserName(tweet);
   }
 
+  function getBadgeRoot(badge) {
+    return badge?.closest?.('[data-testid="icon-verified"]') ?? badge;
+  }
+
+  function getBadgeAriaLabel(badge) {
+    const root = getBadgeRoot(badge);
+    if (!root) {
+      return "";
+    }
+
+    const label =
+      root.getAttribute("aria-label") ??
+      root.querySelector("svg")?.getAttribute("aria-label") ??
+      "";
+
+    return label.toLowerCase();
+  }
+
+  function isGovernmentBadge(badge) {
+    const label = getBadgeAriaLabel(badge);
+    return label.includes("government");
+  }
+
+  function isGoldCheckBadge(badge) {
+    if (!badge) {
+      return false;
+    }
+
+    const label = getBadgeAriaLabel(badge);
+    if (
+      label.includes("organization") ||
+      label.includes("business") ||
+      label.includes("affiliate")
+    ) {
+      return true;
+    }
+
+    if (isGovernmentBadge(badge) || label.includes("verified account")) {
+      return false;
+    }
+
+    return !!getBadgeRoot(badge)?.querySelector("path[fill]");
+  }
+
   function isBlueCheckBadge(badge) {
     if (!badge) {
       return false;
     }
 
-    const ariaLabel = badge.getAttribute("aria-label") ?? "";
-    if (ariaLabel && !ariaLabel.toLowerCase().includes("verified")) {
+    const label = getBadgeAriaLabel(badge);
+    if (isGoldCheckBadge(badge) || isGovernmentBadge(badge)) {
       return false;
     }
 
-    return !badge.querySelector("path[fill]");
+    if (label.includes("verified account")) {
+      return true;
+    }
+
+    if (label && !label.includes("verified")) {
+      return false;
+    }
+
+    return !getBadgeRoot(badge)?.querySelector("path[fill]");
   }
 
   function isVerifiedScope(scope) {
@@ -130,7 +182,11 @@
     }
 
     for (const badge of scope.querySelectorAll(SELECTORS.verifiedBadge)) {
-      if (settings.badgeType === "any" || isBlueCheckBadge(badge)) {
+      if (settings.badgeType === "any") {
+        return true;
+      }
+
+      if (isBlueCheckBadge(badge) || isGoldCheckBadge(badge)) {
         return true;
       }
     }
