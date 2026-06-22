@@ -11,20 +11,51 @@ body {
 }
 
 main {
-  width: 300px;
+  width: 320px;
   padding: 16px;
 }
 
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 header h1 {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 16px;
   font-weight: 700;
 }
 
 header p {
-  margin: 0 0 16px;
+  margin: 6px 0 0;
   font-size: 13px;
   line-height: 1.4;
+  color: #71767b;
+}
+
+.stat {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #16181c;
+  border: 1px solid #2f3336;
+  color: #71767b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.section {
+  margin-top: 16px;
+}
+
+.section-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: #71767b;
 }
 
@@ -44,6 +75,10 @@ header p {
   border-radius: 12px;
   cursor: pointer;
   user-select: none;
+}
+
+.toggle.compact {
+  margin-top: 8px;
 }
 
 .toggle-copy {
@@ -98,6 +133,78 @@ header p {
 
 .toggle input:checked + .switch::after {
   transform: translateX(20px);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #2f3336;
+  border-radius: 12px;
+  background: #000;
+  color: #e7e9ea;
+  font-size: 14px;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.segmented-option {
+  position: relative;
+  display: block;
+}
+
+.segmented-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented-option span {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid #2f3336;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented-option input:checked + span {
+  border-color: #1d9bf0;
+  background: rgba(29, 155, 240, 0.12);
+  color: #1d9bf0;
+}
+
+.link-button {
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid #2f3336;
+  border-radius: 12px;
+  background: transparent;
+  color: #e7e9ea;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  background: #16181c;
 }
 
 .note {

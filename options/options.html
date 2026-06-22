@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hide Unverified X — Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Advanced settings</h1>
+        <p>Fine-tune who gets filtered and who is always shown.</p>
+      </header>
+
+      <section class="card">
+        <h2>Retweets</h2>
+        <p class="card-desc">Choose whose verification status matters for reposts.</p>
+        <label class="field" for="retweetAuthor">
+          <span class="field-label">Check verification for</span>
+          <select id="retweetAuthor" class="select">
+            <option value="original">Original author</option>
+            <option value="retweeter">Person who reposted</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>Quote tweets</h2>
+        <p class="card-desc">Choose whose verification status matters for quotes.</p>
+        <label class="field" for="quoteAuthor">
+          <span class="field-label">Check verification for</span>
+          <select id="quoteAuthor" class="select">
+            <option value="quoter">Person who quoted</option>
+            <option value="quoted">Quoted author</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>Whitelist</h2>
+        <p class="card-desc">
+          These accounts are always shown, even without a verification badge.
+          One handle per line, with or without <code>@</code>.
+        </p>
+        <label class="field" for="whitelist">
+          <span class="field-label">Always show</span>
+          <textarea
+            id="whitelist"
+            class="textarea"
+            rows="8"
+            placeholder="elonmusk&#10;@nasa"
+          ></textarea>
+        </label>
+        <div class="actions">
+          <button type="button" class="button" id="saveWhitelist">Save whitelist</button>
+          <span class="status" id="saveStatus" aria-live="polite"></span>
+        </div>
+      </section>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

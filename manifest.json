@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hide Unverified X",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Hide posts and replies from accounts without a blue check on X (Twitter).",
   "icons": {
     "16": "icons/icon16.png",
@@ -29,11 +29,18 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["storage"],
+  "permissions": ["storage", "tabs"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
   "browser_specific_settings": {
     "gecko": {
       "id": "hide-unverified-x@kevinchau.github",
-      "strict_min_version": "109.0"
+      "strict_min_version": "128.0"
     }
   }
 }

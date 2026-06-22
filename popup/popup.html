@@ -9,41 +9,86 @@
   <body>
     <main>
       <header>
-        <h1>Hide Unverified X</h1>
-        <p>Choose where to hide posts without a blue check.</p>
+        <div class="header-row">
+          <h1>Hide Unverified X</h1>
+          <div class="stat" id="hiddenCount" aria-live="polite">0 hidden</div>
+        </div>
+        <p>Choose where and how to filter unverified posts.</p>
       </header>
 
-      <section class="toggle-group" aria-label="Filter settings">
-        <label class="toggle" for="forYou">
-          <span class="toggle-copy">
-            <span class="toggle-label">For you</span>
-            <span class="toggle-desc">Home timeline recommendations</span>
-          </span>
-          <input type="checkbox" id="forYou" checked />
-          <span class="switch" aria-hidden="true"></span>
-        </label>
+      <section class="section">
+        <h2 class="section-title">Where to filter</h2>
+        <div class="toggle-group" aria-label="Filter contexts">
+          <label class="toggle" for="forYou">
+            <span class="toggle-copy">
+              <span class="toggle-label">For you</span>
+              <span class="toggle-desc">Home timeline recommendations</span>
+            </span>
+            <input type="checkbox" id="forYou" checked />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
 
-        <label class="toggle" for="following">
-          <span class="toggle-copy">
-            <span class="toggle-label">Following</span>
-            <span class="toggle-desc">Posts from accounts you follow</span>
-          </span>
-          <input type="checkbox" id="following" checked />
-          <span class="switch" aria-hidden="true"></span>
-        </label>
+          <label class="toggle" for="following">
+            <span class="toggle-copy">
+              <span class="toggle-label">Following</span>
+              <span class="toggle-desc">Posts from accounts you follow</span>
+            </span>
+            <input type="checkbox" id="following" checked />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
 
-        <label class="toggle" for="replies">
+          <label class="toggle" for="replies">
+            <span class="toggle-copy">
+              <span class="toggle-label">Replies</span>
+              <span class="toggle-desc">Reply posts across X</span>
+            </span>
+            <input type="checkbox" id="replies" checked />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Verification</h2>
+        <label class="field" for="badgeType">
+          <span class="field-label">Count as verified</span>
+          <select id="badgeType" class="select">
+            <option value="blue">Blue check only</option>
+            <option value="any">Any badge (blue, gold, gray)</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Display</h2>
+        <div class="segmented" role="group" aria-label="Display mode">
+          <label class="segmented-option">
+            <input type="radio" name="displayMode" value="hide" checked />
+            <span>Hide</span>
+          </label>
+          <label class="segmented-option">
+            <input type="radio" name="displayMode" value="dim" />
+            <span>Dim</span>
+          </label>
+        </div>
+
+        <label class="toggle compact" for="showPlaceholders">
           <span class="toggle-copy">
-            <span class="toggle-label">Replies</span>
-            <span class="toggle-desc">Reply posts across X</span>
+            <span class="toggle-label">Placeholder cards</span>
+            <span class="toggle-desc">Show a slim bar with reveal actions</span>
           </span>
-          <input type="checkbox" id="replies" checked />
+          <input type="checkbox" id="showPlaceholders" checked />
           <span class="switch" aria-hidden="true"></span>
         </label>
       </section>
 
+      <button type="button" class="link-button" id="openOptions">
+        Advanced settings
+      </button>
+
       <p class="note">
-        Reload X after changing settings if some posts do not update immediately.
+        Hidden count resets when you close the tab. Reload X if posts do not
+        update immediately.
       </p>
     </main>
     <script src="popup.js"></script>

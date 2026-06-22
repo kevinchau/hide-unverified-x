@@ -6,10 +6,11 @@ No accounts. No tracking. Everything runs locally in your browser.
 
 ## Features
 
-- Hides unverified posts and replies across your timeline, search, and threads
-- Targets the **blue check** specifically — gold (business) and gray (government) badges are not treated as blue checks
-- Works with infinite scroll via a `MutationObserver`
+- Hides or dims unverified posts and replies
 - Separate toggles for **For you**, **Following**, and **Replies**
+- **Verification rules** — blue check only or any badge; choose author for retweets and quote tweets
+- **Softer UX** — placeholder cards with **Show once** and **Always show**, plus per-tab hidden count
+- **Whitelist** — always show specific accounts
 - Manifest V3, compatible with Chrome and Firefox
 
 ## Install
@@ -32,39 +33,60 @@ No accounts. No tracking. Everything runs locally in your browser.
 
 ## Usage
 
-Open the toolbar popup to control filtering per context:
+### Popup
 
-| Toggle | Applies to |
+| Setting | What it does |
 | --- | --- |
-| **For you** | Recommended posts on the home timeline |
-| **Following** | Posts from accounts you follow on the home timeline |
-| **Replies** | Reply posts anywhere on X (detected via "Replying to …") |
+| **For you** | Filter recommended home timeline posts |
+| **Following** | Filter posts from accounts you follow |
+| **Replies** | Filter reply posts across X |
+| **Count as verified** | Blue check only, or any badge (gold/gray included) |
+| **Hide / Dim** | Remove posts entirely, or fade them out |
+| **Placeholder cards** | Show a slim bar with reveal actions when hiding |
 
-All three are enabled by default. Turn off a toggle to stop filtering in that context.
+The popup also shows how many posts are hidden in the current X tab.
 
-Profiles, search, and other pages are not filtered. If some posts don't update immediately after toggling, reload the X tab.
+### Advanced settings
+
+Open **Advanced settings** from the popup, or right-click the extension icon → **Options**.
+
+| Setting | What it does |
+| --- | --- |
+| **Retweets** | Filter based on the original author or the person who reposted |
+| **Quote tweets** | Filter based on the quoter or the quoted author |
+| **Whitelist** | Handles that are always shown, one per line |
+
+Placeholder actions:
+
+- **Show once** — reveal the post until you reload the tab
+- **Always show** — add the author to your whitelist
 
 ## How it works
 
 1. A content script watches for new `article[data-testid="tweet"]` elements
-2. It finds the tweet author via `[data-testid="User-Name"]`, ignoring quoted tweets
-3. It checks for a blue verification badge (`[data-testid="icon-verified"]` with an outlined SVG path)
-4. Unverified tweets are hidden by setting `display: none` on the feed cell or tweet article
+2. It determines context (For you, Following, Replies, or other)
+3. It resolves the relevant author based on your retweet/quote settings
+4. It checks for a verification badge in that author's name row
+5. Unverified posts are hidden or dimmed; optional placeholder cards offer reveal actions
+
+Profiles, search, and other pages are not filtered yet.
 
 ## Project structure
 
 ```
 hide-unverified-x/
-├── manifest.json    # Extension manifest (MV3)
-├── content.js       # Tweet filtering logic
-├── content.css      # Hide styles
-├── popup/           # Enable/disable popup UI
-└── icons/           # Extension icons
+├── manifest.json
+├── background.js    # Per-tab hidden count relay
+├── content.js         # Tweet filtering logic
+├── content.css
+├── popup/             # Quick settings
+├── options/           # Advanced settings
+└── icons/
 ```
 
 ## Privacy
 
-This extension does not collect, transmit, or store any personal data. The only setting (enabled/disabled) is saved locally via `chrome.storage.sync`.
+This extension does not collect, transmit, or store any personal data beyond your settings and whitelist, saved locally via `chrome.storage.sync`.
 
 ## License
 
