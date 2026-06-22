@@ -77,13 +77,35 @@
 
       <section class="section">
         <h2 class="section-title">Verification</h2>
-        <label class="field" for="badgeType">
-          <span class="field-label">Count as verified</span>
-          <select id="badgeType" class="select">
-            <option value="blue">Blue or gold check</option>
-            <option value="any">Any badge (includes government)</option>
-          </select>
-        </label>
+        <p class="section-note">Posts from unchecked accounts are hidden unless a selected badge is present.</p>
+        <div class="toggle-group" aria-label="Verification badge types">
+          <label class="toggle compact" for="badgeBlue">
+            <span class="toggle-copy">
+              <span class="toggle-label">Blue check</span>
+              <span class="toggle-desc">Individual verified accounts</span>
+            </span>
+            <input type="checkbox" id="badgeBlue" checked />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle compact" for="badgeGold">
+            <span class="toggle-copy">
+              <span class="toggle-label">Gold check</span>
+              <span class="toggle-desc">Verified organizations</span>
+            </span>
+            <input type="checkbox" id="badgeGold" checked />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle compact" for="badgeGovernment">
+            <span class="toggle-copy">
+              <span class="toggle-label">Silver check</span>
+              <span class="toggle-desc">Government officials</span>
+            </span>
+            <input type="checkbox" id="badgeGovernment" />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+        </div>
       </section>
 
       <section class="section">

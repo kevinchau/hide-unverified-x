@@ -15,7 +15,9 @@
     forYou: true,
     following: true,
     replies: true,
-    badgeType: "blue",
+    badgeBlue: true,
+    badgeGold: true,
+    badgeGovernment: false,
     retweetAuthor: "original",
     quoteAuthor: "quoter",
     displayMode: "hide",
@@ -129,9 +131,17 @@
     return label.toLowerCase();
   }
 
-  function isGovernmentBadge(badge) {
+  function hasGovernmentLabel(badge) {
     const label = getBadgeAriaLabel(badge);
-    return label.includes("government");
+    return (
+      label.includes("government") ||
+      label.includes("public official") ||
+      label.includes("official account")
+    );
+  }
+
+  function isGovernmentCheckBadge(badge) {
+    return !!badge && hasGovernmentLabel(badge);
   }
 
   function isGoldCheckBadge(badge) {
@@ -148,7 +158,7 @@
       return true;
     }
 
-    if (isGovernmentBadge(badge) || label.includes("verified account")) {
+    if (hasGovernmentLabel(badge) || label.includes("verified account")) {
       return false;
     }
 
@@ -161,7 +171,7 @@
     }
 
     const label = getBadgeAriaLabel(badge);
-    if (isGoldCheckBadge(badge) || isGovernmentBadge(badge)) {
+    if (isGoldCheckBadge(badge) || isGovernmentCheckBadge(badge)) {
       return false;
     }
 
@@ -176,17 +186,29 @@
     return !getBadgeRoot(badge)?.querySelector("path[fill]");
   }
 
+  function badgeCountsAsVerified(badge) {
+    if (isBlueCheckBadge(badge) && settings.badgeBlue) {
+      return true;
+    }
+
+    if (isGoldCheckBadge(badge) && settings.badgeGold) {
+      return true;
+    }
+
+    if (isGovernmentCheckBadge(badge) && settings.badgeGovernment) {
+      return true;
+    }
+
+    return false;
+  }
+
   function isVerifiedScope(scope) {
     if (!scope) {
       return false;
     }
 
     for (const badge of scope.querySelectorAll(SELECTORS.verifiedBadge)) {
-      if (settings.badgeType === "any") {
-        return true;
-      }
-
-      if (isBlueCheckBadge(badge) || isGoldCheckBadge(badge)) {
+      if (badgeCountsAsVerified(badge)) {
         return true;
       }
     }
@@ -633,6 +655,30 @@
       .filter(Boolean);
   }
 
+  function normalizeBadgeSettings(result) {
+    if (typeof result.badgeBlue === "boolean") {
+      return {
+        badgeBlue: result.badgeBlue,
+        badgeGold: result.badgeGold !== false,
+        badgeGovernment: result.badgeGovernment === true,
+      };
+    }
+
+    if (result.badgeType === "any") {
+      return {
+        badgeBlue: true,
+        badgeGold: true,
+        badgeGovernment: true,
+      };
+    }
+
+    return {
+      badgeBlue: true,
+      badgeGold: true,
+      badgeGovernment: false,
+    };
+  }
+
   function normalizeStoredSettings(result) {
     const hasContextSettings = ["forYou", "following", "replies"].some(
       (key) => typeof result[key] === "boolean"
@@ -659,7 +705,7 @@
     return {
       ...DEFAULT_SETTINGS,
       ...base,
-      badgeType: result.badgeType === "any" ? "any" : "blue",
+      ...normalizeBadgeSettings(result),
       retweetAuthor:
         result.retweetAuthor === "retweeter" ? "retweeter" : "original",
       quoteAuthor: result.quoteAuthor === "quoted" ? "quoted" : "quoter",

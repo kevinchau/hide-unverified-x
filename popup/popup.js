@@ -2,7 +2,9 @@ const DEFAULTS = {
   forYou: true,
   following: true,
   replies: true,
-  badgeType: "blue",
+  badgeBlue: true,
+  badgeGold: true,
+  badgeGovernment: false,
   displayMode: "hide",
   showPlaceholders: true,
 };
@@ -14,6 +16,9 @@ const BOOL_KEYS = [
   "showPlaceholders",
   "countryForYou",
   "countryReplies",
+  "badgeBlue",
+  "badgeGold",
+  "badgeGovernment",
 ];
 const storage = globalThis.chrome?.storage?.sync ?? globalThis.browser?.storage?.sync;
 const sessionStorage =
@@ -22,13 +27,36 @@ const runtime = globalThis.chrome?.runtime ?? globalThis.browser?.runtime;
 const tabs = globalThis.chrome?.tabs ?? globalThis.browser?.tabs;
 
 const hiddenCountEl = document.getElementById("hiddenCount");
-const badgeTypeSelect = document.getElementById("badgeType");
 const openOptionsButton = document.getElementById("openOptions");
 const displayModeInputs = [...document.querySelectorAll('input[name="displayMode"]')];
 
 const boolInputs = Object.fromEntries(
   BOOL_KEYS.map((key) => [key, document.getElementById(key)])
 );
+
+function normalizeBadgeSettings(result) {
+  if (typeof result.badgeBlue === "boolean") {
+    return {
+      badgeBlue: result.badgeBlue,
+      badgeGold: result.badgeGold !== false,
+      badgeGovernment: result.badgeGovernment === true,
+    };
+  }
+
+  if (result.badgeType === "any") {
+    return {
+      badgeBlue: true,
+      badgeGold: true,
+      badgeGovernment: true,
+    };
+  }
+
+  return {
+    badgeBlue: true,
+    badgeGold: true,
+    badgeGovernment: false,
+  };
+}
 
 function normalizeStoredSettings(result) {
   const hasContextSettings = ["forYou", "following", "replies"].some(
@@ -40,7 +68,7 @@ function normalizeStoredSettings(result) {
       forYou: result.forYou ?? DEFAULTS.forYou,
       following: result.following ?? DEFAULTS.following,
       replies: result.replies ?? DEFAULTS.replies,
-      badgeType: result.badgeType === "any" ? "any" : "blue",
+      ...normalizeBadgeSettings(result),
       displayMode: result.displayMode === "dim" ? "dim" : "hide",
       showPlaceholders:
         typeof result.showPlaceholders === "boolean"
@@ -105,7 +133,9 @@ function saveSettings() {
     replies: boolInputs.replies.checked,
     countryForYou: boolInputs.countryForYou.checked,
     countryReplies: boolInputs.countryReplies.checked,
-    badgeType: badgeTypeSelect.value,
+    badgeBlue: boolInputs.badgeBlue.checked,
+    badgeGold: boolInputs.badgeGold.checked,
+    badgeGovernment: boolInputs.badgeGovernment.checked,
     displayMode,
     showPlaceholders: boolInputs.showPlaceholders.checked,
   });
@@ -118,7 +148,9 @@ function applySettings(values) {
   boolInputs.countryForYou.checked = values.countryForYou === true;
   boolInputs.countryReplies.checked = values.countryReplies === true;
   boolInputs.showPlaceholders.checked = values.showPlaceholders;
-  badgeTypeSelect.value = values.badgeType;
+  boolInputs.badgeBlue.checked = values.badgeBlue !== false;
+  boolInputs.badgeGold.checked = values.badgeGold !== false;
+  boolInputs.badgeGovernment.checked = values.badgeGovernment === true;
 
   for (const input of displayModeInputs) {
     input.checked = input.value === values.displayMode;
@@ -133,8 +165,6 @@ if (storage) {
   for (const key of BOOL_KEYS) {
     boolInputs[key].addEventListener("change", saveSettings);
   }
-
-  badgeTypeSelect.addEventListener("change", saveSettings);
 
   for (const input of displayModeInputs) {
     input.addEventListener("change", saveSettings);

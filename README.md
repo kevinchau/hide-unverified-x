@@ -8,7 +8,7 @@ No developer API keys. Everything runs locally in your browser.
 
 - Hides or dims unverified posts and replies
 - Separate toggles for **For you**, **Following**, and **Replies**
-- **Verification rules** — blue or gold check (default), or any badge including government; choose author for retweets and quote tweets
+- **Verification rules** — choose which badges count (blue, gold, silver/government); choose author for retweets and quote tweets
 - **About-account filter** — match **Account based in** and **Connected via** from `/username/about`
 - **Softer UX** — placeholder cards with **Show once** and **Always show**, plus per-tab hidden count
 - **Whitelist** — always show specific accounts
@@ -40,7 +40,7 @@ No developer API keys. Everything runs locally in your browser.
 | --- | --- |
 | **For you / Following / Replies** | Verification filtering per context |
 | **About-account filter** | Filter For you / Replies using About this account data |
-| **Count as verified** | Blue or gold check (default), or any badge including government gray checks |
+| **Count as verified** | Toggle blue, gold, and silver (government) checks independently |
 | **Hide / Dim** | Remove posts entirely, or fade them out |
 | **Placeholder cards** | Show a slim bar with reveal actions when hiding |
 
