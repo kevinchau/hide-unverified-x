@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hide Unverified X</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Hide Unverified X</h1>
+        <p>Hide posts and replies from accounts without a blue check.</p>
+      </header>
+
+      <label class="toggle" for="enabled">
+        <span>Enabled</span>
+        <input type="checkbox" id="enabled" checked />
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+
+      <p class="note">
+        Reload X after toggling if some posts do not update immediately.
+      </p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
