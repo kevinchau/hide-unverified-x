@@ -9,7 +9,7 @@ No accounts. No tracking. Everything runs locally in your browser.
 - Hides unverified posts and replies across your timeline, search, and threads
 - Targets the **blue check** specifically — gold (business) and gray (government) badges are not treated as blue checks
 - Works with infinite scroll via a `MutationObserver`
-- Simple on/off toggle in the extension popup
+- Separate toggles for **For you**, **Following**, and **Replies**
 - Manifest V3, compatible with Chrome and Firefox
 
 ## Install
@@ -32,9 +32,17 @@ No accounts. No tracking. Everything runs locally in your browser.
 
 ## Usage
 
-The extension is enabled by default. Click the toolbar icon to open the popup and toggle filtering on or off.
+Open the toolbar popup to control filtering per context:
 
-If some posts don't update immediately after toggling, reload the X tab.
+| Toggle | Applies to |
+| --- | --- |
+| **For you** | Recommended posts on the home timeline |
+| **Following** | Posts from accounts you follow on the home timeline |
+| **Replies** | Reply posts anywhere on X (detected via "Replying to …") |
+
+All three are enabled by default. Turn off a toggle to stop filtering in that context.
+
+Profiles, search, and other pages are not filtered. If some posts don't update immediately after toggling, reload the X tab.
 
 ## How it works
 

@@ -10,17 +10,40 @@
     <main>
       <header>
         <h1>Hide Unverified X</h1>
-        <p>Hide posts and replies from accounts without a blue check.</p>
+        <p>Choose where to hide posts without a blue check.</p>
       </header>
 
-      <label class="toggle" for="enabled">
-        <span>Enabled</span>
-        <input type="checkbox" id="enabled" checked />
-        <span class="switch" aria-hidden="true"></span>
-      </label>
+      <section class="toggle-group" aria-label="Filter settings">
+        <label class="toggle" for="forYou">
+          <span class="toggle-copy">
+            <span class="toggle-label">For you</span>
+            <span class="toggle-desc">Home timeline recommendations</span>
+          </span>
+          <input type="checkbox" id="forYou" checked />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <label class="toggle" for="following">
+          <span class="toggle-copy">
+            <span class="toggle-label">Following</span>
+            <span class="toggle-desc">Posts from accounts you follow</span>
+          </span>
+          <input type="checkbox" id="following" checked />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <label class="toggle" for="replies">
+          <span class="toggle-copy">
+            <span class="toggle-label">Replies</span>
+            <span class="toggle-desc">Reply posts across X</span>
+          </span>
+          <input type="checkbox" id="replies" checked />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </section>
 
       <p class="note">
-        Reload X after toggling if some posts do not update immediately.
+        Reload X after changing settings if some posts do not update immediately.
       </p>
     </main>
     <script src="popup.js"></script>
