@@ -1,11 +1,12 @@
 const sessionStorage =
   globalThis.chrome?.storage?.session ?? globalThis.browser?.storage?.session;
+const runtime = globalThis.chrome?.runtime ?? globalThis.browser?.runtime;
 
 function countKey(tabId) {
   return `hiddenCount:${tabId}`;
 }
 
-globalThis.chrome?.runtime?.onMessage?.addListener((message, sender) => {
+runtime?.onMessage?.addListener((message, sender) => {
   if (message?.type !== "setHiddenCount" || !sender.tab?.id || !sessionStorage) {
     return;
   }
