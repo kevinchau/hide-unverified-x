@@ -4,12 +4,14 @@
   "private": true,
   "description": "Filter X posts by verification badge and About this account metadata.",
   "scripts": {
+    "sideload": "node scripts/prepare-sideload.mjs",
+    "prepare:sideload": "node scripts/prepare-sideload.mjs",
     "prepare:chrome": "node scripts/prepare-chrome-package.mjs",
     "prepare:firefox": "node scripts/prepare-firefox-package.mjs",
     "build:chrome": "bash scripts/build-chrome.sh",
     "build:firefox": "bash scripts/build-firefox.sh",
-    "build": "npm run build:chrome && npm run build:firefox",
-    "sign:firefox": "npm run prepare:firefox && web-ext sign --source-dir dist/firefox-src --artifacts-dir dist --channel unlisted --approval-timeout 0"
+    "build": "npm run sideload && npm run build:chrome && npm run build:firefox",
+    "sign:firefox": "npm run prepare:firefox && web-ext sign --source-dir dist/sideload/firefox --artifacts-dir dist --channel unlisted --approval-timeout 0"
   },
   "devDependencies": {
     "web-ext": "^8.9.0"

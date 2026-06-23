@@ -28,9 +28,9 @@ Everything runs in your browser. No developer API keys. No tracking.
 ## Contents
 
 - [Features](#features)
-- [Quick start](#quick-start)
-- [Chrome Web Store](#chrome-web-store)
-- [Firefox signing](#firefox-signing)
+- [Sideload (no app store)](#sideload-no-app-store)
+- [Chrome Web Store](#chrome-web-store) *(optional)*
+- [Firefox signing](#firefox-signing) *(optional)*
 - [Popup settings](#popup-settings)
 - [About-account filter](#about-account-filter)
 - [Advanced settings](#advanced-settings)
@@ -55,25 +55,58 @@ Everything runs in your browser. No developer API keys. No tracking.
 
 ---
 
-## Quick start
+## Sideload (no app store)
 
-### Chrome
+Install directly from this repo — no Chrome Web Store or Firefox Add-ons account required.
 
-1. [Download the repo](https://github.com/kevinchau/hide-unverified-x/archive/refs/heads/main.zip) or clone it
-2. Open `chrome://extensions`
-3. Enable **Developer mode**
-4. Click **Load unpacked** and select this folder
+### 1. Prepare sideload folders
 
-> For a published install, package and upload via the [Chrome Web Store](#chrome-web-store).
+Clone the repo, then build browser-specific packages:
 
-### Firefox
+```bash
+git clone https://github.com/kevinchau/hide-unverified-x.git
+cd hide-unverified-x
+npm run sideload
+```
 
-1. Download or clone the repo
-2. Open `about:debugging#/runtime/this-firefox`
-3. Click **Load Temporary Add-on**
-4. Select `manifest.json`
+This writes two ready-to-load folders:
 
-> Temporary Firefox add-ons are removed when the browser restarts. For a permanent install, see [Firefox signing](#firefox-signing) below.
+| Browser | Folder | Manifest |
+| --- | --- | --- |
+| **Chrome** | `dist/sideload/chrome` | MV3 `service_worker` only |
+| **Firefox** | `dist/sideload/firefox` | MV3 `background.scripts` + add-on ID |
+
+Re-run `npm run sideload` after pulling updates.
+
+### 2. Chrome — Load unpacked
+
+1. Open `chrome://extensions`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Select **`dist/sideload/chrome`** (not the repo root, not the `.zip`)
+
+Chrome keeps the extension until you remove it. **Developer mode** must stay on. Click **Reload** on the extension card after `npm run sideload`.
+
+> Chrome cannot install the `.zip` directly — only an unpacked folder.
+
+### 3. Firefox — Temporary Add-on
+
+1. Open `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on…**
+3. Select **`dist/sideload/firefox/manifest.json`**
+
+Firefox loads it for the current session. **Re-load the same manifest after every browser restart** (bookmark `about:debugging` to make this quick).
+
+> Without Mozilla signing, Firefox does not allow permanent unsigned installs. Sideloading is intentionally temporary.
+
+### Updating
+
+```bash
+git pull
+npm run sideload
+```
+
+Then reload the extension in Chrome (`chrome://extensions` → Reload) or re-pick the manifest in Firefox debugging.
 
 ### Recommended first setup
 
@@ -87,7 +120,9 @@ Everything runs in your browser. No developer API keys. No tracking.
 
 ## Chrome Web Store
 
-Package a **Chrome-only** zip for the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole).
+*(Optional — use [Sideload](#sideload-no-app-store) to skip the store entirely.)*
+
+Package a zip for the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole).
 
 ### 1. Build the package
 
@@ -95,9 +130,7 @@ Package a **Chrome-only** zip for the [Chrome Web Store Developer Dashboard](htt
 npm run build:chrome
 ```
 
-Output: `dist/hide-unverified-x-1.7.1-chrome.zip`
-
-The build uses a **Chrome-only manifest** (`service_worker` only, no Firefox `gecko` keys).
+Output: `dist/hide-unverified-x-1.7.1-chrome.zip` (same contents as `dist/sideload/chrome`).
 
 ### 2. Upload and publish
 
@@ -122,7 +155,9 @@ npm run build
 
 ## Firefox signing
 
-Firefox requires extensions to be **signed by Mozilla** for permanent install. This repo includes a packaging script that produces an upload-ready `.zip` / `.xpi`.
+*(Optional — use [Sideload](#sideload-no-app-store) to skip Mozilla signing.)*
+
+Build an upload-ready `.zip` / `.xpi` for [Mozilla Add-on Developer Hub](https://addons.mozilla.org/developers/) if you want a **permanent** Firefox install.
 
 ### 1. Build the unsigned package
 
@@ -134,10 +169,10 @@ Outputs:
 
 | File | Use |
 | --- | --- |
-| `dist/hide-unverified-x-1.7.1-firefox.zip` | Upload to [Mozilla Add-on Developer Hub](https://addons.mozilla.org/developers/) |
+| `dist/hide-unverified-x-1.7.1-firefox.zip` | Upload to Mozilla |
 | `dist/hide-unverified-x-1.7.1.xpi` | Same contents (`.xpi` is a zip) |
 
-The build uses a **Firefox-only manifest** (`background.scripts` only, no `service_worker`), add-on ID `hide-unverified-x@kevinchau.github`, and declares `data_collection_permissions.required: ["none"]` (no personal data transmitted).
+Same files as `dist/sideload/firefox`, zipped for AMO upload.
 
 ### 2. Sign via Mozilla (manual upload)
 
@@ -267,10 +302,12 @@ flowchart LR
 ```
 hide-unverified-x/
 ├── manifest.json
-├── package.json          # npm run build:chrome / build:firefox
+├── package.json          # npm run sideload / build:chrome / build:firefox
 ├── store/
 │   └── chrome-listing.txt
 ├── scripts/
+│   ├── package-shared.mjs
+│   ├── prepare-sideload.mjs
 │   ├── build-chrome.sh
 │   ├── build-firefox.sh
 │   ├── prepare-chrome-package.mjs
@@ -285,7 +322,10 @@ hide-unverified-x/
 ├── popup/                # Quick settings
 ├── options/              # Advanced settings
 ├── icons/
-└── dist/                 # Built after npm run build:firefox (gitignored)
+└── dist/                 # gitignored
+    └── sideload/
+        ├── chrome/       # npm run sideload → Load unpacked (Chrome)
+        └── firefox/      # npm run sideload → Load Temporary Add-on
 ```
 
 ---

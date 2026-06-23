@@ -5,6 +5,7 @@ All notable changes to this project are documented here.
 ## [1.7.1] — 2026-06-23
 
 ### Added
+- **Sideload workflow** — `npm run sideload` prepares `dist/sideload/chrome` and `dist/sideload/firefox` for local install without app stores
 - Chrome Web Store packaging (`npm run build:chrome`) and store listing copy in `store/chrome-listing.txt`
 - `npm run build` produces both Chrome and Firefox packages
 
