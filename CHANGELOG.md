@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [1.7.1] — 2026-06-23
+
+### Fixed
+- Firefox AMO submission: add `browser_specific_settings.gecko.data_collection_permissions` (`required: ["none"]`)
+- Firefox minimum version raised to 140.0 (required for built-in data consent)
+
 ## [1.7.0] — 2026-06-22
 
 ### Added

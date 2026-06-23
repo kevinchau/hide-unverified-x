@@ -30,14 +30,17 @@ function prepareFirefoxManifest(sourceManifest) {
     scripts: ["background.js"],
   };
 
-  if (!manifest.browser_specific_settings?.gecko?.id) {
-    manifest.browser_specific_settings = {
-      gecko: {
-        id: "hide-unverified-x@kevinchau.github",
-        strict_min_version: "128.0",
+  manifest.browser_specific_settings = {
+    gecko: {
+      id:
+        sourceManifest.browser_specific_settings?.gecko?.id ??
+        "hide-unverified-x@kevinchau.github",
+      strict_min_version: "140.0",
+      data_collection_permissions: {
+        required: ["none"],
       },
-    };
-  }
+    },
+  };
 
   return manifest;
 }

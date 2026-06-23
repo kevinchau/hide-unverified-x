@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/kevinchau/hide-unverified-x/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
-  <a href="https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.7.0"><img src="https://img.shields.io/badge/version-1.7.0-1d9bf0.svg" alt="Version 1.7.0" /></a>
+  <a href="https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.7.1"><img src="https://img.shields.io/badge/version-1.7.1-1d9bf0.svg" alt="Version 1.7.1" /></a>
   <img src="https://img.shields.io/badge/Manifest-V3-000000.svg" alt="Manifest V3" />
   <img src="https://img.shields.io/badge/Chrome-supported-4285F4?logo=googlechrome&logoColor=white" alt="Chrome" />
   <img src="https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white" alt="Firefox" />
@@ -96,10 +96,10 @@ Outputs:
 
 | File | Use |
 | --- | --- |
-| `dist/hide-unverified-x-1.7.0-firefox.zip` | Upload to [Mozilla Add-on Developer Hub](https://addons.mozilla.org/developers/) |
-| `dist/hide-unverified-x-1.7.0.xpi` | Same contents (`.xpi` is a zip) |
+| `dist/hide-unverified-x-1.7.1-firefox.zip` | Upload to [Mozilla Add-on Developer Hub](https://addons.mozilla.org/developers/) |
+| `dist/hide-unverified-x-1.7.1.xpi` | Same contents (`.xpi` is a zip) |
 
-The build uses a **Firefox-only manifest** (`background.scripts` only, no `service_worker`) and add-on ID `hide-unverified-x@kevinchau.github`.
+The build uses a **Firefox-only manifest** (`background.scripts` only, no `service_worker`), add-on ID `hide-unverified-x@kevinchau.github`, and declares `data_collection_permissions.required: ["none"]` (no personal data transmitted).
 
 ### 2. Sign via Mozilla (manual upload)
 
