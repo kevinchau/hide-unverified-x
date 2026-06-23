@@ -1,5 +1,9 @@
 .DS_Store
 Thumbs.db
+dist/
+node_modules/
 *.zip
 *.crx
 *.xpi
+.env
+.env.*

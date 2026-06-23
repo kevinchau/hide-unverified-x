@@ -1,0 +1,14 @@
+{
+  "name": "hide-unverified-x",
+  "version": "1.7.0",
+  "private": true,
+  "description": "Filter X posts by verification badge and About this account metadata.",
+  "scripts": {
+    "prepare:firefox": "node scripts/prepare-firefox-package.mjs",
+    "build:firefox": "bash scripts/build-firefox.sh",
+    "sign:firefox": "npm run prepare:firefox && web-ext sign --source-dir dist/firefox-src --artifacts-dir dist --channel unlisted --approval-timeout 0"
+  },
+  "devDependencies": {
+    "web-ext": "^8.9.0"
+  }
+}

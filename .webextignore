@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+dist
+scripts
+package.json
+package-lock.json
+.webextignore
+*.md
+.DS_Store
+Thumbs.db
+*.zip
+*.crx
+*.xpi
+.env
+.env.*

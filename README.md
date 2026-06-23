@@ -29,6 +29,7 @@ Everything runs in your browser. No developer API keys. No tracking.
 
 - [Features](#features)
 - [Quick start](#quick-start)
+- [Firefox signing](#firefox-signing)
 - [Popup settings](#popup-settings)
 - [About-account filter](#about-account-filter)
 - [Advanced settings](#advanced-settings)
@@ -69,7 +70,7 @@ Everything runs in your browser. No developer API keys. No tracking.
 3. Click **Load Temporary Add-on**
 4. Select `manifest.json`
 
-> Temporary Firefox add-ons are removed when the browser restarts. For a permanent install, package and sign via [Mozilla Add-on Developer Hub](https://addons.mozilla.org/developers/).
+> Temporary Firefox add-ons are removed when the browser restarts. For a permanent install, see [Firefox signing](#firefox-signing) below.
 
 ### Recommended first setup
 
@@ -78,6 +79,53 @@ Everything runs in your browser. No developer API keys. No tracking.
 3. Turn on **Silver check** if you want government officials visible
 4. Enable **About-account filter** for For you / Replies if you want region blocking
 5. In **Advanced settings**, click **Use suggested spam blocklist** for South Asia + Africa presets
+
+---
+
+## Firefox signing
+
+Firefox requires extensions to be **signed by Mozilla** for permanent install. This repo includes a packaging script that produces an upload-ready `.zip` / `.xpi`.
+
+### 1. Build the unsigned package
+
+```bash
+npm run build:firefox
+```
+
+Outputs:
+
+| File | Use |
+| --- | --- |
+| `dist/hide-unverified-x-1.7.0-firefox.zip` | Upload to [Mozilla Add-on Developer Hub](https://addons.mozilla.org/developers/) |
+| `dist/hide-unverified-x-1.7.0.xpi` | Same contents (`.xpi` is a zip) |
+
+The build uses a **Firefox-only manifest** (`background.scripts` only, no `service_worker`) and add-on ID `hide-unverified-x@kevinchau.github`.
+
+### 2. Sign via Mozilla (manual upload)
+
+1. Create a [Firefox Add-ons developer account](https://addons.mozilla.org/developers/)
+2. Go to **Submit a New Add-on**
+3. Choose **On this site** (public listing) or **On your own** (unlisted/self-hosted)
+4. Upload `dist/hide-unverified-x-*-firefox.zip`
+5. Complete the submission form (license: MIT, no minified source — reviewers can read the JS as-is)
+6. Wait for automated review / signing (usually minutes for unlisted; public listing may take longer)
+
+Mozilla returns a **signed `.xpi`**. Install it in Firefox via **Add-ons and themes → gear icon → Install Add-on From File**.
+
+### 3. Sign via CLI (optional)
+
+For repeat releases, use Mozilla API keys from [Developer Hub → Tools → API credentials](https://addons.mozilla.org/developers/addon/api/key/):
+
+```bash
+npm install
+export WEB_EXT_API_KEY="your-jwt-issuer"
+export WEB_EXT_API_SECRET="your-jwt-secret"
+npm run sign:firefox
+```
+
+`web-ext sign` uploads `dist/firefox-src`, signs it, and writes the signed `.xpi` into `dist/`. Use `--channel unlisted` for self-distribution (default in `package.json`).
+
+> Keep API secrets out of git. Use a local `.env` (gitignored) or your shell profile.
 
 ---
 
@@ -181,6 +229,10 @@ flowchart LR
 ```
 hide-unverified-x/
 ├── manifest.json
+├── package.json          # npm run build:firefox / sign:firefox
+├── scripts/
+│   ├── build-firefox.sh
+│   └── prepare-firefox-package.mjs
 ├── page-interceptor.js   # Captures AboutAccountQuery in-page
 ├── about-account.js      # Cached AboutAccountQuery lookups
 ├── following-cache.js    # Cached follow relationships from GraphQL
@@ -190,7 +242,8 @@ hide-unverified-x/
 ├── content.css
 ├── popup/                # Quick settings
 ├── options/              # Advanced settings
-└── icons/
+├── icons/
+└── dist/                 # Built after npm run build:firefox (gitignored)
 ```
 
 ---

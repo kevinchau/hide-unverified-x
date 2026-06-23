@@ -7,6 +7,7 @@ All notable changes to this project are documented here.
 ### Added
 - **Followed by your follows** whitelist — surfaces non-verified accounts that appear in the profile “Followed by … you follow” social proof
 - Passive GraphQL detection plus profile-page DOM scanning; handles cached locally as you browse
+- Firefox packaging script (`npm run build:firefox`) and optional `web-ext sign` flow for Mozilla signing
 
 ## [1.6.0] — 2026-06-22
 
