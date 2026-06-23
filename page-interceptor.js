@@ -194,6 +194,126 @@
     });
   }
 
+  const MAX_SOCIAL_PROOF_DEPTH = 8;
+
+  function textIndicatesFollowedByYouFollow(text) {
+    const normalized = String(text).replace(/\s+/g, " ").trim().toLowerCase();
+    const hasFollowedBy =
+      normalized.includes("followed by") ||
+      normalized.includes("suivi par") ||
+      normalized.includes("seguido por") ||
+      normalized.includes("gefolgt von");
+    const hasYouFollow =
+      normalized.includes("you follow") ||
+      normalized.includes("vous suivez") ||
+      normalized.includes("que sigues") ||
+      normalized.includes("die du folgst") ||
+      normalized.includes("フォローしている");
+
+    return hasFollowedBy && hasYouFollow;
+  }
+
+  function typeIndicatesFollowedByYouFollow(type) {
+    const normalized = String(type).toLowerCase();
+    return (
+      normalized.includes("friendsfollowing") ||
+      normalized.includes("followedbyfriend") ||
+      normalized.includes("trustedfriend") ||
+      normalized.includes("socialproof")
+    );
+  }
+
+  function objectIndicatesFollowedByYouFollow(obj, visited, depth) {
+    if (!obj || depth > MAX_SOCIAL_PROOF_DEPTH) {
+      return false;
+    }
+
+    if (typeof obj === "string") {
+      return textIndicatesFollowedByYouFollow(obj);
+    }
+
+    if (typeof obj !== "object") {
+      return false;
+    }
+
+    if (visited.has(obj)) {
+      return false;
+    }
+
+    visited.add(obj);
+
+    if (Array.isArray(obj)) {
+      return obj.some((item) =>
+        objectIndicatesFollowedByYouFollow(item, visited, depth + 1)
+      );
+    }
+
+    for (const [key, value] of Object.entries(obj)) {
+      if (
+        /social|proof|context/i.test(key) &&
+        typeIndicatesFollowedByYouFollow(value?.type || value?.__typename || key)
+      ) {
+        return true;
+      }
+
+      if (objectIndicatesFollowedByYouFollow(value, visited, depth + 1)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function userHasFollowedByYouFollowProof(user) {
+    return objectIndicatesFollowedByYouFollow(user, new WeakSet(), 0);
+  }
+
+  function walkForFollowedByFollowingUsers(value, found, visited) {
+    if (!value || typeof value !== "object") {
+      return;
+    }
+
+    if (visited.has(value)) {
+      return;
+    }
+
+    visited.add(value);
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        walkForFollowedByFollowingUsers(item, found, visited);
+      }
+      return;
+    }
+
+    if (looksLikeUser(value)) {
+      const handle = readFollowingHandle(value);
+      if (handle && userHasFollowedByYouFollowProof(value)) {
+        found.add(handle);
+      }
+    }
+
+    for (const child of Object.values(value)) {
+      if (child && typeof child === "object") {
+        walkForFollowedByFollowingUsers(child, found, visited);
+      }
+    }
+  }
+
+  function handleFollowedByFollowingPayload(payload) {
+    const found = new Set();
+    walkForFollowedByFollowingUsers(payload, found, new WeakSet());
+
+    if (!found.size) {
+      return;
+    }
+
+    publish({
+      type: "hux-followed-by-following",
+      handles: [...found],
+    });
+  }
+
   function readTweetId(obj) {
     if (!obj || typeof obj !== "object") {
       return "";
@@ -318,6 +438,7 @@
     }
 
     handleFollowingUsersPayload(payload);
+    handleFollowedByFollowingPayload(payload);
     handleTweetAuthorsPayload(payload);
   }
 

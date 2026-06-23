@@ -5,6 +5,9 @@ const quoteAuthorSelect = document.getElementById("quoteAuthor");
 const whitelistTextarea = document.getElementById("whitelist");
 const saveWhitelistButton = document.getElementById("saveWhitelist");
 const whitelistFollowingInput = document.getElementById("whitelistFollowing");
+const whitelistFollowedByFollowingInput = document.getElementById(
+  "whitelistFollowedByFollowing"
+);
 const saveStatus = document.getElementById("saveStatus");
 
 const countryModeSelect = document.getElementById("countryMode");
@@ -106,6 +109,7 @@ if (storage) {
       quoteAuthor: "quoter",
       whitelist: [],
       whitelistFollowing: false,
+      whitelistFollowedByFollowing: false,
       countryMode: "blocklist",
       countryMatchFields: "both",
       countryList: [],
@@ -120,6 +124,8 @@ if (storage) {
         Array.isArray(result.whitelist) ? result.whitelist : []
       );
       whitelistFollowingInput.checked = result.whitelistFollowing === true;
+      whitelistFollowedByFollowingInput.checked =
+        result.whitelistFollowedByFollowing === true;
       countryModeSelect.value =
         result.countryMode === "allowlist" ? "allowlist" : "blocklist";
       countryMatchFieldsSelect.value =
@@ -171,6 +177,15 @@ if (storage) {
       whitelistFollowingInput.checked,
       saveStatus,
       "Follow whitelist saved"
+    );
+  });
+
+  whitelistFollowedByFollowingInput?.addEventListener("change", () => {
+    saveSelectSetting(
+      "whitelistFollowedByFollowing",
+      whitelistFollowedByFollowingInput.checked,
+      saveStatus,
+      "Social follow whitelist saved"
     );
   });
 

@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [1.7.0] — 2026-06-22
+
+### Added
+- **Followed by your follows** whitelist — surfaces non-verified accounts that appear in the profile “Followed by … you follow” social proof
+- Passive GraphQL detection plus profile-page DOM scanning; handles cached locally as you browse
+
 ## [1.6.0] — 2026-06-22
 
 ### Fixed

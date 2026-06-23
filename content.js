@@ -25,6 +25,7 @@
     showPlaceholders: true,
     whitelist: [],
     whitelistFollowing: false,
+    whitelistFollowedByFollowing: false,
     countryForYou: false,
     countryReplies: false,
     countryMode: "blocklist",
@@ -41,8 +42,24 @@
     verifiedBadge: '[data-testid="icon-verified"]',
     socialContext: '[data-testid="socialContext"]',
     homeTab: '[role="tab"]',
+    primaryColumn: '[data-testid="primaryColumn"]',
     placeholder: `[${PLACEHOLDER_ATTR}]`,
   };
+
+  const RESERVED_PROFILE_PATHS = new Set([
+    "home",
+    "search",
+    "settings",
+    "i",
+    "compose",
+    "messages",
+    "notifications",
+    "explore",
+    "login",
+    "signup",
+    "intent",
+    "hashtag",
+  ]);
 
   let settings = { ...DEFAULT_SETTINGS };
   let observer = null;
@@ -300,12 +317,74 @@
     );
   }
 
+  function textIndicatesFollowedByYouFollow(text) {
+    const normalized = String(text).replace(/\s+/g, " ").trim().toLowerCase();
+    const hasFollowedBy =
+      normalized.includes("followed by") ||
+      normalized.includes("suivi par") ||
+      normalized.includes("seguido por") ||
+      normalized.includes("gefolgt von");
+    const hasYouFollow =
+      normalized.includes("you follow") ||
+      normalized.includes("vous suivez") ||
+      normalized.includes("que sigues") ||
+      normalized.includes("die du folgst") ||
+      normalized.includes("フォローしている");
+
+    return hasFollowedBy && hasYouFollow;
+  }
+
+  function getProfileHandle() {
+    const match = location.pathname.match(/^\/([^/?]+)$/);
+    if (!match) {
+      return null;
+    }
+
+    const handle = match[1].toLowerCase();
+    if (RESERVED_PROFILE_PATHS.has(handle)) {
+      return null;
+    }
+
+    return handle;
+  }
+
+  function scanProfileFollowedByFollowing() {
+    if (!settings.whitelistFollowedByFollowing) {
+      return;
+    }
+
+    const handle = getProfileHandle();
+    if (!handle) {
+      return;
+    }
+
+    const root =
+      document.querySelector(SELECTORS.primaryColumn) ?? document.body;
+    const treeWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+
+    while (treeWalker.nextNode()) {
+      const nodeText = treeWalker.currentNode.textContent ?? "";
+      if (textIndicatesFollowedByYouFollow(nodeText)) {
+        followingCache?.addFollowedByFollowing([handle]);
+        return;
+      }
+    }
+  }
+
   function isFollowWhitelisted(tweet, handle, context) {
     if (settings.whitelistFollowing && context === "following") {
       return true;
     }
 
     if (isWhitelisted(handle)) {
+      return true;
+    }
+
+    if (
+      settings.whitelistFollowedByFollowing &&
+      handle &&
+      followingCache?.isFollowedByFollowing(handle)
+    ) {
       return true;
     }
 
@@ -753,6 +832,10 @@
       if (shouldProcess) {
         scheduleProcess();
       }
+
+      if (settings.whitelistFollowedByFollowing && getProfileHandle()) {
+        scanProfileFollowedByFollowing();
+      }
     });
 
     observer.observe(document.body, {
@@ -762,6 +845,7 @@
       attributeFilter: ["aria-selected"],
     });
 
+    scanProfileFollowedByFollowing();
     processTweets();
   }
 
@@ -856,6 +940,7 @@
           : DEFAULT_SETTINGS.showPlaceholders,
       whitelist: normalizeWhitelist(result.whitelist),
       whitelistFollowing: result.whitelistFollowing === true,
+      whitelistFollowedByFollowing: result.whitelistFollowedByFollowing === true,
       countryForYou: result.countryForYou === true,
       countryReplies: result.countryReplies === true,
       countryMode: result.countryMode === "allowlist" ? "allowlist" : "blocklist",
@@ -873,6 +958,7 @@
   function applySettings(nextSettings) {
     settings = normalizeStoredSettings(nextSettings);
     startObserver();
+    scanProfileFollowedByFollowing();
     processTweets();
   }
 
@@ -918,6 +1004,11 @@
 
     if (event.data.type === "hux-tweet-authors") {
       followingCache?.addTweetAuthors(event.data.tweets);
+      return;
+    }
+
+    if (event.data.type === "hux-followed-by-following") {
+      followingCache?.addFollowedByFollowing(event.data.handles);
     }
   }
 

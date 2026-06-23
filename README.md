@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/kevinchau/hide-unverified-x/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
-  <a href="https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.6.0"><img src="https://img.shields.io/badge/version-1.6.0-1d9bf0.svg" alt="Version 1.6.0" /></a>
+  <a href="https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.7.0"><img src="https://img.shields.io/badge/version-1.7.0-1d9bf0.svg" alt="Version 1.7.0" /></a>
   <img src="https://img.shields.io/badge/Manifest-V3-000000.svg" alt="Manifest V3" />
   <img src="https://img.shields.io/badge/Chrome-supported-4285F4?logo=googlechrome&logoColor=white" alt="Chrome" />
   <img src="https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white" alt="Firefox" />
