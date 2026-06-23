@@ -5,9 +5,7 @@ import { fileURLToPath } from "node:url";
 import { stageChromePackage } from "./package-shared.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const staging =
-  process.argv[2] ??
-  path.join(root, "dist", "sideload", "chrome");
+const staging = process.argv[2] ?? path.join(root, "chrome");
 
 const version = stageChromePackage(root, staging);
 

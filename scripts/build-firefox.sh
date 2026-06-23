@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-node scripts/prepare-sideload.mjs >/dev/null
+node scripts/prepare-firefox-package.mjs dist/sideload/firefox >/dev/null
 
 VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync('manifest.json','utf8')).version")"
 STAGING="dist/sideload/firefox"
