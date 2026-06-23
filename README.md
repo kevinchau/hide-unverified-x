@@ -53,7 +53,37 @@ Click **Install for Firefox** above, or [download the signed add-on](https://git
 
 ### Chrome
 
-Chrome support is available, but there is no one-click install yet. A Chrome Web Store listing is planned — watch [releases](https://github.com/kevinchau/hide-unverified-x/releases) for updates.
+Install from this repo using Chrome’s **Load unpacked** (Developer mode). You need [Node.js](https://nodejs.org/) installed once to prepare the extension folder.
+
+**1. Get the repo**
+
+```bash
+git clone https://github.com/kevinchau/hide-unverified-x.git
+cd hide-unverified-x
+```
+
+Or download the [source zip](https://github.com/kevinchau/hide-unverified-x/archive/refs/heads/main.zip), unzip it, and open a terminal in that folder.
+
+**2. Prepare the Chrome folder**
+
+```bash
+npm run sideload
+```
+
+This creates `dist/sideload/chrome` — the folder Chrome needs. Re-run this command after pulling updates.
+
+**3. Load in Chrome**
+
+1. Open `chrome://extensions`
+2. Turn on **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Select the **`dist/sideload/chrome`** folder inside the repo (not the repo root, not a `.zip`)
+
+Chrome keeps the extension until you remove it. **Developer mode** must stay on.
+
+**To update:** run `git pull`, then `npm run sideload`, then click **Reload** on the extension card in `chrome://extensions`.
+
+> Chrome cannot install a `.zip` directly — only an unpacked folder. A Chrome Web Store listing is planned for a one-click install later.
 
 ---
 
@@ -160,7 +190,7 @@ All filtering happens in your browser.
 
 **Firefox:** New versions install automatically once released. You can also check [releases](https://github.com/kevinchau/hide-unverified-x/releases) manually.
 
-**Chrome:** Check [releases](https://github.com/kevinchau/hide-unverified-x/releases) for store availability and install options.
+**Chrome:** `git pull`, `npm run sideload`, then **Reload** the extension in `chrome://extensions`. A Web Store listing is planned for automatic updates.
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 

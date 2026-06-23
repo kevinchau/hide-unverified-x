@@ -19,4 +19,4 @@ console.log("Sideload folders ready:");
 console.log(`  Chrome:  dist/sideload/chrome   (v${version})`);
 console.log(`  Firefox: dist/sideload/firefox  (v${version})`);
 console.log("");
-console.log("See README → Sideload for install steps.");
+console.log("See README → Install for browser-specific steps.");
