@@ -5,6 +5,14 @@ import path from "node:path";
 // UUID format avoids collisions with other extensions on addons.mozilla.org.
 export const FIREFOX_ADDON_ID = "{b4e8a1c2-3f5d-4e7a-9b0c-1d2e3f4a5b6c}";
 
+export const GITHUB_REPO = "kevinchau/hide-unverified-x";
+export const GITHUB_DEFAULT_BRANCH = "main";
+export const FIREFOX_UPDATE_MANIFEST_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_DEFAULT_BRANCH}/updates.json`;
+
+export function firefoxReleaseXpiUrl(version) {
+  return `https://github.com/${GITHUB_REPO}/releases/download/v${version}/hide-unverified-x-${version}.xpi`;
+}
+
 export const COPY_DIRS = ["popup", "options", "icons"];
 
 export const COPY_FILES = [
@@ -64,6 +72,7 @@ export function prepareFirefoxManifest(sourceManifest) {
     gecko: {
       id: FIREFOX_ADDON_ID,
       strict_min_version: "140.0",
+      update_url: FIREFOX_UPDATE_MANIFEST_URL,
       data_collection_permissions: {
         required: ["none"],
       },

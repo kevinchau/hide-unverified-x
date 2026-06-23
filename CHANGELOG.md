@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [1.7.3] — 2026-06-23
+
+### Added
+- Firefox `update_url` for self-hosted updates via GitHub Releases (`updates.json` on `main`, synced on `npm run build:firefox`)
+
 ## [1.7.2] — 2026-06-23
 
 ### Fixed

@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/kevinchau/hide-unverified-x/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
-  <a href="https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.7.2"><img src="https://img.shields.io/badge/version-1.7.2-1d9bf0.svg" alt="Version 1.7.2" /></a>
+  <a href="https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.7.3"><img src="https://img.shields.io/badge/version-1.7.3-1d9bf0.svg" alt="Version 1.7.3" /></a>
   <img src="https://img.shields.io/badge/Manifest-V3-000000.svg" alt="Manifest V3" />
   <img src="https://img.shields.io/badge/Chrome-supported-4285F4?logo=googlechrome&logoColor=white" alt="Chrome" />
   <img src="https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white" alt="Firefox" />
@@ -169,10 +169,20 @@ Outputs:
 
 | File | Use |
 | --- | --- |
-| `dist/hide-unverified-x-1.7.1-firefox.zip` | Upload to Mozilla |
-| `dist/hide-unverified-x-1.7.1.xpi` | Same contents (`.xpi` is a zip) |
+| `dist/hide-unverified-x-*-firefox.zip` | Upload to Mozilla |
+| `dist/hide-unverified-x-*.xpi` | Same contents (`.xpi` is a zip) |
 
 Same files as `dist/sideload/firefox`, zipped for AMO upload.
+
+### Self-hosted updates (GitHub Releases)
+
+Firefox builds include `browser_specific_settings.gecko.update_url`, pointing at [`updates.json`](updates.json) on `main` (see [Mozilla’s updating guide](https://extensionworkshop.com/documentation/manage/updating-your-extension/)). After each release:
+
+1. Run `npm run build:firefox` (writes `updates.json` with the `.xpi` SHA-256 hash)
+2. Commit and push `updates.json`
+3. Create a GitHub Release tagged `vX.Y.Z` and attach `dist/hide-unverified-x-X.Y.Z.xpi`
+
+Users who install a signed build outside AMO get automatic updates when Firefox fetches the manifest from GitHub.
 
 **Duplicate add-on ID?** The Firefox ID is `{b4e8a1c2-3f5d-4e7a-9b0c-1d2e3f4a5b6c}` (see `scripts/package-shared.mjs`). If AMO says the ID is taken, either upload a **new version** of your existing listing (Developer Hub → your add-on → Upload New Version), or change `FIREFOX_ADDON_ID` to a fresh UUID for a brand-new listing.
 

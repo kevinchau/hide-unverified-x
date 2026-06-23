@@ -20,6 +20,8 @@ XPI_NAME="hide-unverified-x-${VERSION}.xpi"
 
 cp "dist/${ZIP_NAME}" "dist/${XPI_NAME}"
 
+node scripts/sync-updates-json.mjs "dist/${XPI_NAME}"
+
 echo "Built Firefox zip:  dist/${ZIP_NAME}"
 echo "Built Firefox xpi:  dist/${XPI_NAME}"
 echo "Sideload folder:    dist/sideload/firefox"
