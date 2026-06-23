@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
+// Stable Firefox add-on ID for AMO. Must stay constant after first successful publish.
+// UUID format avoids collisions with other extensions on addons.mozilla.org.
+export const FIREFOX_ADDON_ID = "{b4e8a1c2-3f5d-4e7a-9b0c-1d2e3f4a5b6c}";
+
 export const COPY_DIRS = ["popup", "options", "icons"];
 
 export const COPY_FILES = [
@@ -58,9 +62,7 @@ export function prepareFirefoxManifest(sourceManifest) {
 
   manifest.browser_specific_settings = {
     gecko: {
-      id:
-        sourceManifest.browser_specific_settings?.gecko?.id ??
-        "hide-unverified-x@kevinchau.github",
+      id: FIREFOX_ADDON_ID,
       strict_min_version: "140.0",
       data_collection_permissions: {
         required: ["none"],

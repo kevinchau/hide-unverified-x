@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [1.7.2] — 2026-06-23
+
+### Fixed
+- Firefox AMO **Duplicate add-on ID** — replaced `hide-unverified-x@kevinchau.github` with a unique UUID (`{b4e8a1c2-3f5d-4e7a-9b0c-1d2e3f4a5b6c}`); ID is centralized in `scripts/package-shared.mjs`
+
 ## [1.7.1] — 2026-06-23
 
 ### Added
