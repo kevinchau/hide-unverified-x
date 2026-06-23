@@ -4,6 +4,7 @@ const retweetAuthorSelect = document.getElementById("retweetAuthor");
 const quoteAuthorSelect = document.getElementById("quoteAuthor");
 const whitelistTextarea = document.getElementById("whitelist");
 const saveWhitelistButton = document.getElementById("saveWhitelist");
+const whitelistFollowingInput = document.getElementById("whitelistFollowing");
 const saveStatus = document.getElementById("saveStatus");
 
 const countryModeSelect = document.getElementById("countryMode");
@@ -104,6 +105,7 @@ if (storage) {
       retweetAuthor: "original",
       quoteAuthor: "quoter",
       whitelist: [],
+      whitelistFollowing: false,
       countryMode: "blocklist",
       countryMatchFields: "both",
       countryList: [],
@@ -117,6 +119,7 @@ if (storage) {
       whitelistTextarea.value = formatWhitelist(
         Array.isArray(result.whitelist) ? result.whitelist : []
       );
+      whitelistFollowingInput.checked = result.whitelistFollowing === true;
       countryModeSelect.value =
         result.countryMode === "allowlist" ? "allowlist" : "blocklist";
       countryMatchFieldsSelect.value =
@@ -160,6 +163,15 @@ if (storage) {
     countryMatchFieldsSelect.value = "both";
     countryUnknownSelect.value = "show";
     saveCountrySettings();
+  });
+
+  whitelistFollowingInput?.addEventListener("change", () => {
+    saveSelectSetting(
+      "whitelistFollowing",
+      whitelistFollowingInput.checked,
+      saveStatus,
+      "Follow whitelist saved"
+    );
   });
 
   saveWhitelistButton.addEventListener("click", saveWhitelist);

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hide Unverified X",
-  "version": "1.4.5",
+  "version": "1.5.0",
   "description": "Filter X posts by verification badge and About this account metadata. No API keys.",
   "icons": {
     "16": "icons/icon16.png",
@@ -33,7 +33,12 @@
         "https://x.com/*",
         "https://twitter.com/*"
       ],
-      "js": ["country-match.js", "about-account.js", "content.js"],
+      "js": [
+        "country-match.js",
+        "about-account.js",
+        "following-cache.js",
+        "content.js"
+      ],
       "css": ["content.css"],
       "run_at": "document_idle"
     }

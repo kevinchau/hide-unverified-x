@@ -23,6 +23,7 @@
     displayMode: "hide",
     showPlaceholders: true,
     whitelist: [],
+    whitelistFollowing: false,
     countryForYou: false,
     countryReplies: false,
     countryMode: "blocklist",
@@ -50,6 +51,7 @@
   const storage = globalThis.chrome?.storage?.sync ?? globalThis.browser?.storage?.sync;
   const countryMatcher = globalThis.HUXCountry;
   const aboutAccount = globalThis.HUXAbout;
+  const followingCache = globalThis.HUXFollowing;
 
   function extractHandle(scope) {
     if (!scope) {
@@ -221,7 +223,16 @@
       return false;
     }
 
-    return settings.whitelist.includes(handle.toLowerCase());
+    const normalized = handle.toLowerCase();
+    if (settings.whitelist.includes(normalized)) {
+      return true;
+    }
+
+    if (settings.whitelistFollowing && followingCache?.isFollowing(normalized)) {
+      return true;
+    }
+
+    return false;
   }
 
   function isReply(tweet) {
@@ -767,6 +778,11 @@
         event.data.connectedVia,
         event.data.accurate
       );
+      return;
+    }
+
+    if (event.data.type === "hux-following-users") {
+      followingCache?.addHandles(event.data.handles);
     }
   }
 
@@ -819,6 +835,7 @@
     initialized = true;
     window.addEventListener("message", handlePageMessage);
     aboutAccount?.init(() => scheduleProcess());
+    followingCache?.setOnUpdate(() => scheduleProcess());
     loadSettings();
   }
 

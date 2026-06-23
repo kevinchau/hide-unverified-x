@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [1.5.0] — 2026-06-22
+
+### Added
+- **Always show accounts you follow** toggle — blanket whitelist built from X GraphQL `following` fields
+- `following-cache.js` — local cache of followed handles, populated passively while browsing
+
 ## [1.4.5] — 2026-06-22
 
 ### Added

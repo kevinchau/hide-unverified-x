@@ -69,15 +69,88 @@
     });
   }
 
+  function readFollowingHandle(user) {
+    return (
+      user?.core?.screen_name ||
+      user?.legacy?.screen_name ||
+      user?.legacy?.screenName ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+  }
+
+  function isFollowingUser(user) {
+    if (!user || typeof user !== "object") {
+      return false;
+    }
+
+    if (user.legacy?.following === true) {
+      return true;
+    }
+
+    return user.relationship_perspectives?.following === true;
+  }
+
+  function walkForFollowingUsers(value, found, visited) {
+    if (!value || typeof value !== "object") {
+      return;
+    }
+
+    if (visited.has(value)) {
+      return;
+    }
+
+    visited.add(value);
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        walkForFollowingUsers(item, found, visited);
+      }
+      return;
+    }
+
+    const handle = readFollowingHandle(value);
+    if (handle && isFollowingUser(value)) {
+      found.add(handle);
+    }
+
+    for (const child of Object.values(value)) {
+      if (child && typeof child === "object") {
+        walkForFollowingUsers(child, found, visited);
+      }
+    }
+  }
+
+  function handleFollowingUsersPayload(payload) {
+    const found = new Set();
+    walkForFollowingUsers(payload, found, new WeakSet());
+
+    if (!found.size) {
+      return;
+    }
+
+    publish({
+      type: "hux-following-users",
+      handles: [...found],
+    });
+  }
+
   function inspectResponse(response, url) {
-    if (!url || !url.includes("/i/api/graphql/") || !url.includes("AboutAccountQuery")) {
+    if (!url || !url.includes("/i/api/graphql/")) {
       return;
     }
 
     response
       .clone()
       .json()
-      .then((payload) => handleAboutAccountPayload(payload, url))
+      .then((payload) => {
+        if (url.includes("AboutAccountQuery")) {
+          handleAboutAccountPayload(payload, url);
+        }
+
+        handleFollowingUsersPayload(payload);
+      })
       .catch(() => {});
   }
 

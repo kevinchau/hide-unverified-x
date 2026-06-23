@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/kevinchau/hide-unverified-x/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
-  <a href="https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.4.5"><img src="https://img.shields.io/badge/version-1.4.5-1d9bf0.svg" alt="Version 1.4.5" /></a>
+  <a href="https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.5.0"><img src="https://img.shields.io/badge/version-1.5.0-1d9bf0.svg" alt="Version 1.5.0" /></a>
   <img src="https://img.shields.io/badge/Manifest-V3-000000.svg" alt="Manifest V3" />
   <img src="https://img.shields.io/badge/Chrome-supported-4285F4?logo=googlechrome&logoColor=white" alt="Chrome" />
   <img src="https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white" alt="Firefox" />
@@ -48,7 +48,7 @@ Everything runs in your browser. No developer API keys. No tracking.
 | **Context** | Separate toggles for **For you**, **Following**, and **Replies** |
 | **About-account** | Blocklist/allowlist by region or App Store string from `/username/about` |
 | **Softer UX** | Placeholder cards with **Show once** and **Always show** |
-| **Whitelist** | Always show specific handles |
+| **Whitelist** | Always show specific handles or all accounts you follow |
 | **Cross-browser** | Manifest V3 for Chrome and Firefox |
 
 ---
@@ -90,6 +90,7 @@ Everything runs in your browser. No developer API keys. No tracking.
 | **Blue / Gold / Silver check** | Choose which badge types count as verified |
 | **Hide / Dim** | Remove posts entirely, or fade them out |
 | **Placeholder cards** | Show a slim reveal bar when hiding |
+| **Accounts you follow** | Blanket whitelist for everyone you follow |
 
 The popup also shows how many posts are hidden in the current X tab.
 
@@ -144,6 +145,7 @@ Open from the popup, or right-click the extension icon → **Options**.
 | **Quote tweets** | Filter by quoter or quoted author |
 | **About-account filter** | Blocklist/allowlist, match fields, unknown-account behavior |
 | **Whitelist** | Handles always shown, one per line |
+| **Always show accounts you follow** | Builds a local follow list from timeline GraphQL responses |
 
 **Placeholder actions**
 
@@ -181,6 +183,7 @@ hide-unverified-x/
 ├── manifest.json
 ├── page-interceptor.js   # Captures AboutAccountQuery in-page
 ├── about-account.js      # Cached AboutAccountQuery lookups
+├── following-cache.js    # Cached follow relationships from GraphQL
 ├── country-match.js      # Blocklist/allowlist matching
 ├── background.js         # Per-tab hidden count relay
 ├── content.js            # Tweet filtering logic

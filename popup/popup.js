@@ -7,6 +7,7 @@ const DEFAULTS = {
   badgeGovernment: false,
   displayMode: "hide",
   showPlaceholders: true,
+  whitelistFollowing: false,
 };
 
 const BOOL_KEYS = [
@@ -19,6 +20,7 @@ const BOOL_KEYS = [
   "badgeBlue",
   "badgeGold",
   "badgeGovernment",
+  "whitelistFollowing",
 ];
 const storage = globalThis.chrome?.storage?.sync ?? globalThis.browser?.storage?.sync;
 const sessionStorage =
@@ -76,6 +78,7 @@ function normalizeStoredSettings(result) {
           : DEFAULTS.showPlaceholders,
       countryForYou: result.countryForYou === true,
       countryReplies: result.countryReplies === true,
+      whitelistFollowing: result.whitelistFollowing === true,
     };
   }
 
@@ -136,6 +139,7 @@ function saveSettings() {
     badgeBlue: boolInputs.badgeBlue.checked,
     badgeGold: boolInputs.badgeGold.checked,
     badgeGovernment: boolInputs.badgeGovernment.checked,
+    whitelistFollowing: boolInputs.whitelistFollowing.checked,
     displayMode,
     showPlaceholders: boolInputs.showPlaceholders.checked,
   });
@@ -151,6 +155,7 @@ function applySettings(values) {
   boolInputs.badgeBlue.checked = values.badgeBlue !== false;
   boolInputs.badgeGold.checked = values.badgeGold !== false;
   boolInputs.badgeGovernment.checked = values.badgeGovernment === true;
+  boolInputs.whitelistFollowing.checked = values.whitelistFollowing === true;
 
   for (const input of displayModeInputs) {
     input.checked = input.value === values.displayMode;
