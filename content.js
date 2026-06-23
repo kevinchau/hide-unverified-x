@@ -525,6 +525,10 @@
     const authorScope = getAuthorScope(tweet);
     const handle = extractHandle(authorScope);
 
+    if (settings.whitelistFollowing && context === "following") {
+      return null;
+    }
+
     if (isWhitelisted(handle)) {
       return null;
     }
@@ -574,7 +578,7 @@
 
   function scheduleProcess() {
     if (pendingFrame !== null) {
-      return;
+      cancelAnimationFrame(pendingFrame);
     }
 
     pendingFrame = requestAnimationFrame(() => {
@@ -726,6 +730,7 @@
           ? result.showPlaceholders
           : DEFAULT_SETTINGS.showPlaceholders,
       whitelist: normalizeWhitelist(result.whitelist),
+      whitelistFollowing: result.whitelistFollowing === true,
       countryForYou: result.countryForYou === true,
       countryReplies: result.countryReplies === true,
       countryMode: result.countryMode === "allowlist" ? "allowlist" : "blocklist",

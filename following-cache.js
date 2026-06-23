@@ -8,7 +8,8 @@
   const following = new Set();
   let onUpdate = null;
   let persistTimer = null;
-  let loaded = false;
+  let loadComplete = false;
+  let loadStarted = false;
 
   const localStorage =
     globalThis.chrome?.storage?.local ?? globalThis.browser?.storage?.local;
@@ -28,12 +29,17 @@
     }, PERSIST_DELAY_MS);
   }
 
+  function finishLoad() {
+    loadComplete = true;
+    onUpdate?.();
+  }
+
   function load() {
-    if (!localStorage || loaded) {
+    if (!localStorage || loadComplete || loadStarted) {
       return;
     }
 
-    loaded = true;
+    loadStarted = true;
     localStorage.get({ [CACHE_KEY]: [] }, (result) => {
       const handles = Array.isArray(result[CACHE_KEY]) ? result[CACHE_KEY] : [];
       for (const handle of handles) {
@@ -42,6 +48,8 @@
           following.add(normalized);
         }
       }
+
+      finishLoad();
     });
   }
 
@@ -95,9 +103,16 @@
 
   function setOnUpdate(callback) {
     onUpdate = callback;
+    if (loadComplete) {
+      onUpdate();
+    }
   }
 
-  load();
+  if (!localStorage) {
+    finishLoad();
+  } else {
+    load();
+  }
 
   globalThis.HUXFollowing = {
     addHandles,

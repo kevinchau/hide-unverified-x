@@ -89,7 +89,16 @@
       return true;
     }
 
-    return user.relationship_perspectives?.following === true;
+    const perspectives = user.relationship_perspectives;
+    if (perspectives?.following === true) {
+      return true;
+    }
+
+    if (user.relationship?.following === true) {
+      return true;
+    }
+
+    return user.following === true;
   }
 
   function walkForFollowingUsers(value, found, visited) {
@@ -145,13 +154,21 @@
       .clone()
       .json()
       .then((payload) => {
-        if (url.includes("AboutAccountQuery")) {
-          handleAboutAccountPayload(payload, url);
-        }
-
-        handleFollowingUsersPayload(payload);
+        inspectPayload(payload, url);
       })
       .catch(() => {});
+  }
+
+  function inspectPayload(payload, url) {
+    if (!url || !url.includes("/i/api/graphql/")) {
+      return;
+    }
+
+    if (url.includes("AboutAccountQuery")) {
+      handleAboutAccountPayload(payload, url);
+    }
+
+    handleFollowingUsersPayload(payload);
   }
 
   const originalFetch = window.fetch.bind(window);
@@ -161,5 +178,42 @@
       inspectResponse(response, url);
       return response;
     });
+  };
+
+  const originalOpen = XMLHttpRequest.prototype.open;
+  const originalSend = XMLHttpRequest.prototype.send;
+
+  XMLHttpRequest.prototype.open = function huxXhrOpen(method, url, ...rest) {
+    this._huxUrl = typeof url === "string" ? url : String(url ?? "");
+    return originalOpen.call(this, method, url, ...rest);
+  };
+
+  XMLHttpRequest.prototype.send = function huxXhrSend(...args) {
+    this.addEventListener("load", function huxXhrLoad() {
+      const url = this._huxUrl;
+      if (!url?.includes("/i/api/graphql/")) {
+        return;
+      }
+
+      const responseType = this.responseType;
+      if (
+        responseType &&
+        responseType !== "text" &&
+        responseType !== "" &&
+        responseType !== "json"
+      ) {
+        return;
+      }
+
+      try {
+        const payload =
+          responseType === "json" ? this.response : JSON.parse(this.responseText);
+        inspectPayload(payload, url);
+      } catch {
+        // Ignore non-JSON responses.
+      }
+    });
+
+    return originalSend.apply(this, args);
   };
 })();

@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [1.5.1] — 2026-06-22
+
+### Fixed
+- **Follow whitelist** — `whitelistFollowing` setting was never applied in the content script, so the toggle had no effect
+- Re-process tweets when the following cache loads from storage or receives GraphQL updates (fixed dropped `requestAnimationFrame` coalescing)
+- Intercept `XMLHttpRequest` GraphQL responses in addition to `fetch` so followed handles are discovered reliably
+- Following tab bypasses verification filter when follow-whitelist is enabled
+
 ## [1.5.0] — 2026-06-22
 
 ### Added
