@@ -18,10 +18,14 @@
   <a href="https://github.com/kevinchau/hide-unverified-x/releases/download/v1.7.3/hide-unverified-x-1.7.3.xpi">
     <img src="https://img.shields.io/badge/Install%20for%20Firefox-signed%20.xpi-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white" alt="Install signed Firefox add-on (v1.7.3)" />
   </a>
+  &nbsp;
+  <a href="#chrome">
+    <img src="https://img.shields.io/badge/Install%20for%20Chrome-from%20repo-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Install for Chrome from repo" />
+  </a>
 </p>
 
 <p align="center">
-  <sub>Mozilla-signed · stays installed across restarts · <a href="https://github.com/kevinchau/hide-unverified-x/releases">updates</a> install automatically</sub>
+  <sub><strong>Firefox:</strong> one-click signed install · auto-updates · <strong>Chrome:</strong> load the <a href="https://github.com/kevinchau/hide-unverified-x/tree/main/chrome"><code>chrome/</code></a> folder (no build step)</sub>
 </p>
 
 Hide or dim posts on [X](https://x.com) that lack the verification badges you care about, or that match regions you want to block. Everything runs in your browser — no API keys, no accounts to create, no tracking.
@@ -53,7 +57,7 @@ Click **Install for Firefox** above, or [download the signed add-on](https://git
 
 ### Chrome
 
-Install from this repo using Chrome’s **Load unpacked** (Developer mode).
+The repo includes a ready-to-load [`chrome/`](chrome/) folder — no Node.js, npm, or build step.
 
 **1. Get the repo**
 
@@ -68,11 +72,13 @@ Or download the [source zip](https://github.com/kevinchau/hide-unverified-x/arch
 1. Open `chrome://extensions`
 2. Turn on **Developer mode** (top right)
 3. Click **Load unpacked**
-4. Select the **`chrome`** folder inside the repo
+4. Select the **`chrome`** folder:
+   - After clone: `hide-unverified-x/chrome`
+   - After zip: `hide-unverified-x-main/chrome`
 
 Chrome keeps the extension until you remove it. **Developer mode** must stay on.
 
-**To update:** `git pull` (or re-download the zip), then click **Reload** on the extension card in `chrome://extensions`.
+**To update:** `git pull` (or re-download the zip) to get the latest `chrome/` folder, then click **Reload** on the extension card in `chrome://extensions`.
 
 > A Chrome Web Store listing is planned for a one-click install later.
 
@@ -181,7 +187,7 @@ All filtering happens in your browser.
 
 **Firefox:** New versions install automatically once released. You can also check [releases](https://github.com/kevinchau/hide-unverified-x/releases) manually.
 
-**Chrome:** `git pull` (or re-download the repo), then **Reload** the extension in `chrome://extensions`. A Web Store listing is planned for automatic updates.
+**Chrome:** `git pull` (or re-download the repo) to refresh the `chrome/` folder, then **Reload** the extension in `chrome://extensions`. A Web Store listing is planned for automatic updates.
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 
