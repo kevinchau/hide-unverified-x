@@ -87,9 +87,9 @@ Chrome keeps the extension until you remove it. **Developer mode** must stay on.
 
 > A Chrome Web Store listing is planned for a one-click install later.
 
-### Safari (macOS)
+### Safari
 
-Third-party Safari extension hosted in [`safari/`](safari/). Requires **Xcode** (free) — not distributed through the Mac App Store.
+macOS only. Third-party Safari extension hosted in [`safari/`](safari/). Requires **Xcode** (free) — not distributed through the Mac App Store.
 
 1. Clone or [download](https://github.com/kevinchau/hide-unverified-x/archive/refs/heads/main.zip) this repo.
 2. Open **`safari/Hide Unverified X/Hide Unverified X.xcodeproj`** in Xcode.
