@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hide Unverified X</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="header-row">
+          <h1>Hide Unverified X</h1>
+          <div class="stat" id="hiddenCount" aria-live="polite">0 filtered</div>
+        </div>
+        <p>Choose where and how to filter unverified posts.</p>
+      </header>
+
+      <section class="section">
+        <h2 class="section-title">Where to filter</h2>
+        <div class="toggle-group" aria-label="Filter contexts">
+          <label class="toggle" for="forYou">
+            <span class="toggle-copy">
+              <span class="toggle-label">For you</span>
+              <span class="toggle-desc">Home timeline recommendations</span>
+            </span>
+            <input type="checkbox" id="forYou" checked />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle" for="following">
+            <span class="toggle-copy">
+              <span class="toggle-label">Following</span>
+              <span class="toggle-desc">Posts from accounts you follow</span>
+            </span>
+            <input type="checkbox" id="following" checked />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle" for="replies">
+            <span class="toggle-copy">
+              <span class="toggle-label">Replies</span>
+              <span class="toggle-desc">Reply posts across X</span>
+            </span>
+            <input type="checkbox" id="replies" checked />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">About-account filter</h2>
+        <p class="section-note">
+          Uses Account based in and Connected via from About this account.
+          Cached lookups, no API keys.
+        </p>
+        <div class="toggle-group" aria-label="About-account filter contexts">
+          <label class="toggle" for="countryForYou">
+            <span class="toggle-copy">
+              <span class="toggle-label">For you</span>
+              <span class="toggle-desc">Filter by About this account data</span>
+            </span>
+            <input type="checkbox" id="countryForYou" />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle" for="countryReplies">
+            <span class="toggle-copy">
+              <span class="toggle-label">Replies</span>
+              <span class="toggle-desc">Filter reply authors the same way</span>
+            </span>
+            <input type="checkbox" id="countryReplies" />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Verification</h2>
+        <p class="section-note">Posts from unchecked accounts are hidden unless a selected badge is present.</p>
+        <div class="toggle-group" aria-label="Verification badge types">
+          <label class="toggle compact" for="badgeBlue">
+            <span class="toggle-copy">
+              <span class="toggle-label">Blue check</span>
+              <span class="toggle-desc">Individual verified accounts</span>
+            </span>
+            <input type="checkbox" id="badgeBlue" checked />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle compact" for="badgeGold">
+            <span class="toggle-copy">
+              <span class="toggle-label">Gold check</span>
+              <span class="toggle-desc">Verified organizations</span>
+            </span>
+            <input type="checkbox" id="badgeGold" checked />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle compact" for="badgeGovernment">
+            <span class="toggle-copy">
+              <span class="toggle-label">Silver check</span>
+              <span class="toggle-desc">Government officials</span>
+            </span>
+            <input type="checkbox" id="badgeGovernment" />
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Whitelist</h2>
+        <label class="toggle compact" for="whitelistFollowing">
+          <span class="toggle-copy">
+            <span class="toggle-label">Accounts you follow</span>
+            <span class="toggle-desc">Always show posts from people you follow</span>
+          </span>
+          <input type="checkbox" id="whitelistFollowing" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <label class="toggle compact" for="whitelistFollowedByFollowing">
+          <span class="toggle-copy">
+            <span class="toggle-label">Followed by your follows</span>
+            <span class="toggle-desc">Show accounts with “Followed by … you follow” on their profile</span>
+          </span>
+          <input type="checkbox" id="whitelistFollowedByFollowing" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Display</h2>
+        <div class="segmented" role="group" aria-label="Display mode">
+          <label class="segmented-option">
+            <input type="radio" name="displayMode" value="hide" checked />
+            <span>Hide</span>
+          </label>
+          <label class="segmented-option">
+            <input type="radio" name="displayMode" value="dim" />
+            <span>Dim</span>
+          </label>
+        </div>
+
+        <label class="toggle compact" for="showPlaceholders">
+          <span class="toggle-copy">
+            <span class="toggle-label">Placeholder cards</span>
+            <span class="toggle-desc">Show a slim bar with reveal actions</span>
+          </span>
+          <input type="checkbox" id="showPlaceholders" checked />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </section>
+
+      <button type="button" class="link-button" id="openOptions">
+        Advanced settings
+      </button>
+
+      <p class="note">
+        Filtered count resets when you close the tab. Reload X if posts do not
+        update immediately.
+      </p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

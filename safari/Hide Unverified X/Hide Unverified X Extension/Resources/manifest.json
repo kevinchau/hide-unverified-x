@@ -24,7 +24,9 @@
         "https://x.com/*",
         "https://twitter.com/*"
       ],
-      "js": ["page-interceptor.js"],
+      "js": [
+        "page-interceptor.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN"
     },
@@ -39,27 +41,20 @@
         "following-cache.js",
         "content.js"
       ],
-      "css": ["content.css"],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["storage", "tabs"],
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
   "background": {
-    "scripts": ["background.js"],
     "service_worker": "background.js"
   },
   "options_ui": {
-    "page": "options/options.html",
-    "open_in_tab": true
-  },
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "{b4e8a1c2-3f5d-4e7a-9b0c-1d2e3f4a5b6c}",
-      "strict_min_version": "140.0",
-      "update_url": "https://raw.githubusercontent.com/kevinchau/hide-unverified-x/main/updates.json",
-      "data_collection_permissions": {
-        "required": ["none"]
-      }
-    }
+    "page": "options/options.html"
   }
 }

@@ -9,9 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.7.3"><img src="https://img.shields.io/badge/version-1.7.3-1d9bf0.svg" alt="Version 1.7.3" /></a>
+  <a href="https://github.com/kevinchau/hide-unverified-x/releases/latest"><img src="https://img.shields.io/badge/version-1.7.4-1d9bf0.svg" alt="Version 1.7.4" /></a>
   <img src="https://img.shields.io/badge/Chrome-supported-4285F4?logo=googlechrome&logoColor=white" alt="Chrome" />
   <img src="https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white" alt="Firefox" />
+  <img src="https://img.shields.io/badge/Safari-supported-006CFF?logo=safari&logoColor=white" alt="Safari" />
 </p>
 
 <p align="center">
@@ -22,10 +23,14 @@
   <a href="#chrome">
     <img src="https://img.shields.io/badge/Install%20for%20Chrome-from%20repo-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Install for Chrome from repo" />
   </a>
+  &nbsp;
+  <a href="#safari">
+    <img src="https://img.shields.io/badge/Install%20for%20Safari-from%20repo-006CFF?style=for-the-badge&logo=safari&logoColor=white" alt="Install for Safari from repo" />
+  </a>
 </p>
 
 <p align="center">
-  <sub><strong>Firefox:</strong> one-click signed install · auto-updates · <strong>Chrome:</strong> load the <a href="https://github.com/kevinchau/hide-unverified-x/tree/main/chrome"><code>chrome/</code></a> folder (no build step)</sub>
+  <sub><strong>Firefox:</strong> signed <code>.xpi</code> · auto-updates · <strong>Chrome:</strong> <a href="https://github.com/kevinchau/hide-unverified-x/tree/main/chrome"><code>chrome/</code></a> folder · <strong>Safari:</strong> <a href="https://github.com/kevinchau/hide-unverified-x/tree/main/safari"><code>safari/</code></a> Xcode project</sub>
 </p>
 
 Hide or dim posts on [X](https://x.com) that lack the verification badges you care about, or that match regions you want to block. Everything runs in your browser — no API keys, no accounts to create, no tracking.
@@ -81,6 +86,21 @@ Chrome keeps the extension until you remove it. **Developer mode** must stay on.
 **To update:** `git pull` (or re-download the zip) to get the latest `chrome/` folder, then click **Reload** on the extension card in `chrome://extensions`.
 
 > A Chrome Web Store listing is planned for a one-click install later.
+
+### Safari (macOS)
+
+Third-party Safari extension hosted in [`safari/`](safari/). Requires **Xcode** (free) — not distributed through the Mac App Store.
+
+1. Clone or [download](https://github.com/kevinchau/hide-unverified-x/archive/refs/heads/main.zip) this repo.
+2. Open **`safari/Hide Unverified X/Hide Unverified X.xcodeproj`** in Xcode.
+3. Press **Run** (⌘R) to build and install on your Mac.
+4. Enable the extension in **Safari → Settings → Extensions**.
+
+Full steps and troubleshooting: **[safari/README.md](safari/README.md)**
+
+**To update:** `git pull`, then **Run** again in Xcode.
+
+> Safari requires a signed host app — Xcode handles this with your free Apple ID. Advanced settings open in a panel (not a full tab).
 
 ---
 
@@ -187,7 +207,9 @@ All filtering happens in your browser.
 
 **Firefox:** New versions install automatically once released. You can also check [releases](https://github.com/kevinchau/hide-unverified-x/releases) manually.
 
-**Chrome:** `git pull` (or re-download the repo) to refresh the `chrome/` folder, then **Reload** the extension in `chrome://extensions`. A Web Store listing is planned for automatic updates.
+**Chrome:** `git pull` (or re-download the repo) to refresh the `chrome/` folder, then **Reload** the extension in `chrome://extensions`.
+
+**Safari:** `git pull`, then **Run** again in Xcode. See [safari/README.md](safari/README.md).
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 

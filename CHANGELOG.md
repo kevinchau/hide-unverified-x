@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [1.7.4] — 2026-06-23
+
+### Added
+- **Safari (macOS)** — third-party Safari Web Extension in [`safari/`](safari/), buildable from the repo with Xcode (`npm run prepare:safari` syncs web resources)
+
 ## [1.7.3] — 2026-06-23
 
 ### Added

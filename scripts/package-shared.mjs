@@ -8,6 +8,12 @@ export const FIREFOX_ADDON_ID = "{b4e8a1c2-3f5d-4e7a-9b0c-1d2e3f4a5b6c}";
 export const GITHUB_REPO = "kevinchau/hide-unverified-x";
 export const GITHUB_DEFAULT_BRANCH = "main";
 export const FIREFOX_UPDATE_MANIFEST_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_DEFAULT_BRANCH}/updates.json`;
+export const SAFARI_RESOURCES_DIR = path.join(
+  "safari",
+  "Hide Unverified X",
+  "Hide Unverified X Extension",
+  "Resources"
+);
 
 export function firefoxReleaseXpiUrl(version) {
   return `https://github.com/${GITHUB_REPO}/releases/download/v${version}/hide-unverified-x-${version}.xpi`;
@@ -61,6 +67,17 @@ export function prepareChromeManifest(sourceManifest) {
   return manifest;
 }
 
+export function prepareSafariManifest(sourceManifest) {
+  const manifest = prepareChromeManifest(sourceManifest);
+
+  // Safari Web Extensions do not support open_in_tab on options_ui.
+  if (manifest.options_ui) {
+    delete manifest.options_ui.open_in_tab;
+  }
+
+  return manifest;
+}
+
 export function prepareFirefoxManifest(sourceManifest) {
   const manifest = structuredClone(sourceManifest);
 
@@ -100,5 +117,12 @@ export function stageFirefoxPackage(root, staging) {
   const sourceManifest = readSourceManifest(root);
   copyExtensionFiles(root, staging);
   writeManifest(staging, prepareFirefoxManifest(sourceManifest));
+  return sourceManifest.version;
+}
+
+export function stageSafariPackage(root, staging) {
+  const sourceManifest = readSourceManifest(root);
+  copyExtensionFiles(root, staging);
+  writeManifest(staging, prepareSafariManifest(sourceManifest));
   return sourceManifest.version;
 }

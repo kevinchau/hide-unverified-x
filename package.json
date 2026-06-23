@@ -1,14 +1,17 @@
 {
   "name": "hide-unverified-x",
-  "version": "1.7.3",
+  "version": "1.7.4",
   "private": true,
   "description": "Filter X posts by verification badge and About this account metadata.",
   "scripts": {
     "prepare:chrome": "node scripts/prepare-chrome-package.mjs",
+    "prepare:safari": "node scripts/prepare-safari-package.mjs",
     "prepare:firefox": "node scripts/prepare-firefox-package.mjs dist/sideload/firefox",
+    "scaffold:safari": "node scripts/scaffold-safari.mjs",
     "build:chrome": "bash scripts/build-chrome.sh",
+    "build:safari": "bash scripts/build-safari.sh",
     "build:firefox": "bash scripts/build-firefox.sh",
-    "build": "npm run prepare:chrome && npm run build:chrome && npm run prepare:firefox && npm run build:firefox",
+    "build": "npm run prepare:chrome && npm run build:chrome && npm run prepare:safari && npm run prepare:firefox && npm run build:firefox",
     "sign:firefox": "npm run prepare:firefox && web-ext sign --source-dir dist/sideload/firefox --artifacts-dir dist --channel unlisted --approval-timeout 0"
   },
   "devDependencies": {
