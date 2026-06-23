@@ -1,0 +1,33 @@
+Chrome Web Store listing copy for Hide Unverified X
+====================================================
+
+Short description (132 character max)
+-------------------------------------
+Filter unverified X posts by badge & About-account region. Hide, dim, whitelist follows. Local only, no API keys.
+
+(113 characters)
+
+
+Store summary / promo text (250 characters)
+--------------------------------------------
+Filter unverified X posts by blue, gold, or silver badge and About-account region (e.g. App Store). Hide or dim on For You, Following, and Replies. Whitelist follows and friends-of-follows. Blocklist spam regions. Local only—no API keys or tracking.
+
+(249 characters)
+
+
+Permission justifications (for reviewer form)
+---------------------------------------------
+storage     — Save filter settings, whitelist, and cached About-account / follow lookups locally.
+tabs        — Read per-tab filtered-post count for the popup badge.
+
+Host permissions: none declared. Content scripts run only on x.com and twitter.com.
+
+
+Single purpose
+--------------
+Filter posts on X/Twitter by verification badge and About this account metadata to reduce spam in the user's feed.
+
+
+Privacy
+-------
+No data collected or transmitted. All settings and caches stay on the user's device.

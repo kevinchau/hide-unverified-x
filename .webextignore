@@ -9,6 +9,7 @@ package-lock.json
 *.md
 .DS_Store
 Thumbs.db
+store/
 *.zip
 *.crx
 *.xpi

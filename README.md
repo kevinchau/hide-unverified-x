@@ -29,6 +29,7 @@ Everything runs in your browser. No developer API keys. No tracking.
 
 - [Features](#features)
 - [Quick start](#quick-start)
+- [Chrome Web Store](#chrome-web-store)
 - [Firefox signing](#firefox-signing)
 - [Popup settings](#popup-settings)
 - [About-account filter](#about-account-filter)
@@ -63,6 +64,8 @@ Everything runs in your browser. No developer API keys. No tracking.
 3. Enable **Developer mode**
 4. Click **Load unpacked** and select this folder
 
+> For a published install, package and upload via the [Chrome Web Store](#chrome-web-store).
+
 ### Firefox
 
 1. Download or clone the repo
@@ -79,6 +82,41 @@ Everything runs in your browser. No developer API keys. No tracking.
 3. Turn on **Silver check** if you want government officials visible
 4. Enable **About-account filter** for For you / Replies if you want region blocking
 5. In **Advanced settings**, click **Use suggested spam blocklist** for South Asia + Africa presets
+
+---
+
+## Chrome Web Store
+
+Package a **Chrome-only** zip for the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole).
+
+### 1. Build the package
+
+```bash
+npm run build:chrome
+```
+
+Output: `dist/hide-unverified-x-1.7.1-chrome.zip`
+
+The build uses a **Chrome-only manifest** (`service_worker` only, no Firefox `gecko` keys).
+
+### 2. Upload and publish
+
+1. Create a developer account ($5 one-time fee)
+2. **New item** → upload the zip
+3. Fill in store listing — ready-made copy in [`store/chrome-listing.txt`](store/chrome-listing.txt):
+   - **Short description** (132 max)
+   - **Summary** (249 chars)
+   - Permission justifications for `storage` and `tabs`
+4. Privacy practices: **no data collected**
+5. Submit for review
+
+Chrome signs extensions as part of the store publish flow (no separate sign step like Firefox).
+
+Build both browsers at once:
+
+```bash
+npm run build
+```
 
 ---
 
@@ -229,9 +267,13 @@ flowchart LR
 ```
 hide-unverified-x/
 ├── manifest.json
-├── package.json          # npm run build:firefox / sign:firefox
+├── package.json          # npm run build:chrome / build:firefox
+├── store/
+│   └── chrome-listing.txt
 ├── scripts/
+│   ├── build-chrome.sh
 │   ├── build-firefox.sh
+│   ├── prepare-chrome-package.mjs
 │   └── prepare-firefox-package.mjs
 ├── page-interceptor.js   # Captures AboutAccountQuery in-page
 ├── about-account.js      # Cached AboutAccountQuery lookups
