@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## [1.6.0] — 2026-06-22
+
+### Fixed
+- **Early GraphQL data loss** — MAIN-world interceptor buffers messages until the content script signals ready
+- **Late verification badges** — MutationObserver now reprocesses tweets when badges or usernames load inside existing posts
+- **About-account cache** — Runtime size cap and automatic retry of empty lookups after one hour
+- **Follow whitelist on For You** — GraphQL tweet-ID → author following map supplements the handle cache
+- **False follow positives** — Tightened user detection in the network interceptor (requires user-shaped objects)
+- **Extension reload** — Network hooks are no longer double-patched on hot reload
+- **i18n context detection** — Home tab, reply, and retweet detection use href/structure fallbacks beyond English text
+- **Verification filter** — Skips filtering when all badge toggles are off
+- Popup counter now reads **N filtered** (accurate for dim mode)
+
 ## [1.5.1] — 2026-06-22
 
 ### Fixed

@@ -7,6 +7,7 @@
   const CACHE_KEY = "aboutAccountCache";
   const MIN_INTERVAL_MS = 1500;
   const MAX_CACHE_ENTRIES = 5000;
+  const EMPTY_RETRY_MS = 60 * 60 * 1000;
 
   let queryId = FALLBACK_QUERY_ID;
   let onUpdate = null;
@@ -82,9 +83,33 @@
     }, 500);
   }
 
+  function trimMemoryCache() {
+    if (memoryCache.size <= MAX_CACHE_ENTRIES) {
+      return;
+    }
+
+    const entries = [...memoryCache.entries()].sort(
+      (left, right) => (left[1].fetchedAt ?? 0) - (right[1].fetchedAt ?? 0)
+    );
+    const excess = memoryCache.size - MAX_CACHE_ENTRIES;
+
+    for (let i = 0; i < excess; i += 1) {
+      memoryCache.delete(entries[i][0]);
+    }
+  }
+
+  function shouldRetryEntry(entry) {
+    if (!entry || entry.status !== "resolved" || !entry.empty) {
+      return false;
+    }
+
+    return Date.now() - (entry.fetchedAt ?? 0) > EMPTY_RETRY_MS;
+  }
+
   function setEntry(handle, entry) {
     const key = handle.toLowerCase();
     memoryCache.set(key, entry);
+    trimMemoryCache();
     schedulePersist();
     onUpdate?.();
   }
@@ -105,6 +130,14 @@
     return memoryCache.get(handle.toLowerCase()) ?? null;
   }
 
+  function removeQueuedHandle(key) {
+    queued.delete(key);
+    const index = queue.indexOf(key);
+    if (index >= 0) {
+      queue.splice(index, 1);
+    }
+  }
+
   function enqueue(handle) {
     if (!handle) {
       return;
@@ -112,7 +145,7 @@
 
     const key = handle.toLowerCase();
     const existing = memoryCache.get(key);
-    if (existing?.status === "resolved") {
+    if (existing?.status === "resolved" && !shouldRetryEntry(existing)) {
       return;
     }
 
@@ -198,12 +231,7 @@
     };
 
     const key = handle.toLowerCase();
-    queued.delete(key);
-    const index = queue.indexOf(key);
-    if (index >= 0) {
-      queue.splice(index, 1);
-    }
-
+    removeQueuedHandle(key);
     setEntry(handle, entry);
   }
 
@@ -224,6 +252,7 @@
         }
       }
 
+      trimMemoryCache();
       onUpdate?.();
     });
   }

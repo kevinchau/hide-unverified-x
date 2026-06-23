@@ -2,16 +2,53 @@
   "use strict";
 
   const MESSAGE_SOURCE = "hide-unverified-x";
+  const READY_TYPE = "hux-ready";
+
+  if (window.__huxNetworkHooked) {
+    return;
+  }
+
+  window.__huxNetworkHooked = true;
+
+  let consumerReady = false;
+  const messageBuffer = [];
 
   function publish(message) {
-    window.postMessage(
-      {
-        source: MESSAGE_SOURCE,
-        ...message,
-      },
-      window.location.origin
-    );
+    const payload = {
+      source: MESSAGE_SOURCE,
+      ...message,
+    };
+
+    if (!consumerReady) {
+      messageBuffer.push(payload);
+      return;
+    }
+
+    window.postMessage(payload, window.location.origin);
   }
+
+  function flushBuffer() {
+    consumerReady = true;
+
+    for (const payload of messageBuffer) {
+      window.postMessage(payload, window.location.origin);
+    }
+
+    messageBuffer.length = 0;
+  }
+
+  window.addEventListener("message", (event) => {
+    if (
+      event.source !== window ||
+      event.origin !== window.location.origin ||
+      event.data?.source !== MESSAGE_SOURCE ||
+      event.data?.type !== READY_TYPE
+    ) {
+      return;
+    }
+
+    flushBuffer();
+  });
 
   function readAboutProfile(result) {
     const about = result?.about_profile || result?.aboutProfile || null;
@@ -80,8 +117,24 @@
       .toLowerCase();
   }
 
-  function isFollowingUser(user) {
+  function looksLikeUser(user) {
     if (!user || typeof user !== "object") {
+      return false;
+    }
+
+    if (user.__typename === "User") {
+      return true;
+    }
+
+    return !!(
+      user.legacy?.screen_name ||
+      user.core?.screen_name ||
+      user.legacy?.screenName
+    );
+  }
+
+  function isFollowingUser(user) {
+    if (!looksLikeUser(user)) {
       return false;
     }
 
@@ -94,11 +147,7 @@
       return true;
     }
 
-    if (user.relationship?.following === true) {
-      return true;
-    }
-
-    return user.following === true;
+    return user.relationship?.following === true;
   }
 
   function walkForFollowingUsers(value, found, visited) {
@@ -145,6 +194,106 @@
     });
   }
 
+  function readTweetId(obj) {
+    if (!obj || typeof obj !== "object") {
+      return "";
+    }
+
+    const id =
+      obj.rest_id ||
+      obj.legacy?.id_str ||
+      obj.legacy?.id ||
+      obj.id_str ||
+      "";
+
+    return String(id).trim();
+  }
+
+  function readUserFromTweet(obj) {
+    const candidates = [
+      obj?.core?.user_results?.result,
+      obj?.tweet?.core?.user_results?.result,
+      obj?.user_results?.result,
+      obj?.legacy?.user,
+      obj?.result?.core?.user_results?.result,
+    ];
+
+    for (const user of candidates) {
+      if (user && typeof user === "object") {
+        return user;
+      }
+    }
+
+    return null;
+  }
+
+  function tryExtractTweetAuthor(obj) {
+    const tweetId = readTweetId(obj);
+    if (!tweetId) {
+      return null;
+    }
+
+    const user = readUserFromTweet(obj);
+    if (!user) {
+      return null;
+    }
+
+    const handle = readFollowingHandle(user);
+    if (!handle) {
+      return null;
+    }
+
+    return {
+      tweetId,
+      handle,
+      following: isFollowingUser(user),
+    };
+  }
+
+  function walkForTweetAuthors(value, found, visited) {
+    if (!value || typeof value !== "object") {
+      return;
+    }
+
+    if (visited.has(value)) {
+      return;
+    }
+
+    visited.add(value);
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        walkForTweetAuthors(item, found, visited);
+      }
+      return;
+    }
+
+    const author = tryExtractTweetAuthor(value);
+    if (author) {
+      found.set(author.tweetId, author);
+    }
+
+    for (const child of Object.values(value)) {
+      if (child && typeof child === "object") {
+        walkForTweetAuthors(child, found, visited);
+      }
+    }
+  }
+
+  function handleTweetAuthorsPayload(payload) {
+    const found = new Map();
+    walkForTweetAuthors(payload, found, new WeakSet());
+
+    if (!found.size) {
+      return;
+    }
+
+    publish({
+      type: "hux-tweet-authors",
+      tweets: [...found.values()],
+    });
+  }
+
   function inspectResponse(response, url) {
     if (!url || !url.includes("/i/api/graphql/")) {
       return;
@@ -169,6 +318,7 @@
     }
 
     handleFollowingUsersPayload(payload);
+    handleTweetAuthorsPayload(payload);
   }
 
   const originalFetch = window.fetch.bind(window);

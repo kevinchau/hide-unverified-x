@@ -96,7 +96,7 @@ function normalizeStoredSettings(result) {
 
 function updateHiddenCount(count) {
   const value = Number.isFinite(count) ? count : 0;
-  hiddenCountEl.textContent = `${value} hidden`;
+  hiddenCountEl.textContent = `${value} filtered`;
 }
 
 function countKey(tabId) {

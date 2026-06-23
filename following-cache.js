@@ -3,9 +3,11 @@
 
   const CACHE_KEY = "followingHandles";
   const MAX_ENTRIES = 20000;
+  const MAX_TWEET_ENTRIES = 10000;
   const PERSIST_DELAY_MS = 2000;
 
   const following = new Set();
+  const tweetAuthors = new Map();
   let onUpdate = null;
   let persistTimer = null;
   let loadComplete = false;
@@ -53,7 +55,7 @@
     });
   }
 
-  function trimCache() {
+  function trimHandleCache() {
     if (following.size <= MAX_ENTRIES) {
       return;
     }
@@ -64,6 +66,21 @@
       const value = iterator.next().value;
       if (value) {
         following.delete(value);
+      }
+    }
+  }
+
+  function trimTweetCache() {
+    if (tweetAuthors.size <= MAX_TWEET_ENTRIES) {
+      return;
+    }
+
+    const excess = tweetAuthors.size - MAX_TWEET_ENTRIES;
+    const iterator = tweetAuthors.keys();
+    for (let i = 0; i < excess; i += 1) {
+      const key = iterator.next().value;
+      if (key) {
+        tweetAuthors.delete(key);
       }
     }
   }
@@ -88,7 +105,52 @@
       return;
     }
 
-    trimCache();
+    trimHandleCache();
+    schedulePersist();
+    onUpdate?.();
+  }
+
+  function addTweetAuthors(tweets) {
+    if (!Array.isArray(tweets) || !tweets.length) {
+      return;
+    }
+
+    let changed = false;
+
+    for (const rawTweet of tweets) {
+      const tweetId = String(rawTweet?.tweetId ?? rawTweet?.tweet_id ?? "").trim();
+      const handle = String(rawTweet?.handle ?? "")
+        .trim()
+        .toLowerCase();
+      const isFollowed = rawTweet?.following === true;
+
+      if (!tweetId) {
+        continue;
+      }
+
+      const previous = tweetAuthors.get(tweetId);
+      if (
+        previous?.handle === handle &&
+        previous?.following === isFollowed
+      ) {
+        continue;
+      }
+
+      tweetAuthors.set(tweetId, { handle, following: isFollowed });
+      changed = true;
+
+      if (isFollowed && handle && !following.has(handle)) {
+        following.add(handle);
+        changed = true;
+      }
+    }
+
+    if (!changed) {
+      return;
+    }
+
+    trimHandleCache();
+    trimTweetCache();
     schedulePersist();
     onUpdate?.();
   }
@@ -99,6 +161,14 @@
     }
 
     return following.has(handle.toLowerCase());
+  }
+
+  function isTweetFromFollowing(tweetId) {
+    if (!tweetId) {
+      return false;
+    }
+
+    return tweetAuthors.get(String(tweetId))?.following === true;
   }
 
   function setOnUpdate(callback) {
@@ -116,7 +186,9 @@
 
   globalThis.HUXFollowing = {
     addHandles,
+    addTweetAuthors,
     isFollowing,
+    isTweetFromFollowing,
     setOnUpdate,
     size: () => following.size,
   };

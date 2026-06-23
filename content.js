@@ -2,6 +2,7 @@
   "use strict";
 
   const MESSAGE_SOURCE = "hide-unverified-x";
+  const READY_TYPE = "hux-ready";
 
   const PROCESSED_ATTR = "data-hux-processed";
   const HIDDEN_ATTR = "data-hux-hidden";
@@ -70,6 +71,13 @@
     return hrefMatch ? hrefMatch[1].toLowerCase() : null;
   }
 
+  function extractTweetId(tweet) {
+    const statusLink = tweet.querySelector('a[href*="/status/"]');
+    const href = statusLink?.getAttribute("href") ?? "";
+    const match = href.match(/\/status\/(\d+)/);
+    return match ? match[1] : null;
+  }
+
   function getPrimaryUserName(tweet) {
     for (const userName of tweet.querySelectorAll(SELECTORS.userName)) {
       if (!userName.closest(SELECTORS.quotedTweet)) {
@@ -89,14 +97,65 @@
     return tweet.querySelector(SELECTORS.socialContext);
   }
 
+  function isReply(tweet) {
+    const socialContext = getSocialContext(tweet);
+    if (!socialContext) {
+      return false;
+    }
+
+    const text = socialContext.textContent;
+    if (
+      /replying to/i.test(text) ||
+      /réponse à/i.test(text) ||
+      /返信先/i.test(text)
+    ) {
+      return true;
+    }
+
+    const profileLinks = [
+      ...socialContext.querySelectorAll('a[href^="/"]'),
+    ].filter((link) => {
+      const href = link.getAttribute("href") ?? "";
+      return /^\/[^/?]+$/.test(href);
+    });
+
+    return (
+      profileLinks.length >= 2 &&
+      !socialContext.querySelector('a[href*="/status/"]')
+    );
+  }
+
   function isRetweet(tweet) {
     const socialContext = getSocialContext(tweet);
     if (!socialContext) {
       return false;
     }
 
+    if (isReply(tweet)) {
+      return false;
+    }
+
     const text = socialContext.textContent.toLowerCase();
-    return text.includes("reposted") || text.includes("retweeted");
+    if (
+      text.includes("reposted") ||
+      text.includes("retweeted") ||
+      text.includes("reposté") ||
+      text.includes("リポスト")
+    ) {
+      return true;
+    }
+
+    const profileLinks = [
+      ...socialContext.querySelectorAll('a[href^="/"]'),
+    ].filter((link) => {
+      const href = link.getAttribute("href") ?? "";
+      return /^\/[^/?]+$/.test(href);
+    });
+
+    return (
+      profileLinks.length > 0 &&
+      !socialContext.querySelector('a[href*="/status/"]')
+    );
   }
 
   function isQuoteTweet(tweet) {
@@ -235,13 +294,27 @@
     return false;
   }
 
-  function isReply(tweet) {
-    const socialContext = getSocialContext(tweet);
-    if (!socialContext) {
+  function isAnyBadgeEnabled() {
+    return (
+      settings.badgeBlue || settings.badgeGold || settings.badgeGovernment
+    );
+  }
+
+  function isFollowWhitelisted(tweet, handle, context) {
+    if (settings.whitelistFollowing && context === "following") {
+      return true;
+    }
+
+    if (isWhitelisted(handle)) {
+      return true;
+    }
+
+    if (!settings.whitelistFollowing) {
       return false;
     }
 
-    return /replying to/i.test(socialContext.textContent);
+    const tweetId = extractTweetId(tweet);
+    return !!tweetId && followingCache?.isTweetFromFollowing(tweetId);
   }
 
   function isHomeTimeline() {
@@ -261,11 +334,49 @@
       return null;
     }
 
-    const label = selectedTab.textContent.trim().toLowerCase();
-    if (label.includes("following")) {
+    const href = (
+      selectedTab.querySelector("a[href]")?.getAttribute("href") ??
+      selectedTab.getAttribute("href") ??
+      ""
+    ).toLowerCase();
+
+    if (href.includes("following")) {
       return "following";
     }
-    if (label.includes("for you") || label.includes("foryou")) {
+
+    if (
+      href.includes("foryou") ||
+      href.endsWith("/home") ||
+      href === "/home" ||
+      href === "/"
+    ) {
+      return "forYou";
+    }
+
+    const label = selectedTab.textContent.trim().toLowerCase();
+    if (
+      label.includes("following") ||
+      label.includes("abonnements") ||
+      label.includes("フォロー中")
+    ) {
+      return "following";
+    }
+
+    if (
+      label.includes("for you") ||
+      label.includes("foryou") ||
+      label.includes("pour vous") ||
+      label.includes("おすすめ")
+    ) {
+      return "forYou";
+    }
+
+    const tabs = [...document.querySelectorAll(SELECTORS.homeTab)];
+    const selectedIndex = tabs.indexOf(selectedTab);
+    if (selectedIndex === 1) {
+      return "following";
+    }
+    if (selectedIndex === 0) {
       return "forYou";
     }
 
@@ -525,16 +636,13 @@
     const authorScope = getAuthorScope(tweet);
     const handle = extractHandle(authorScope);
 
-    if (settings.whitelistFollowing && context === "following") {
-      return null;
-    }
-
-    if (isWhitelisted(handle)) {
+    if (isFollowWhitelisted(tweet, handle, context)) {
       return null;
     }
 
     if (
       isVerificationFilterEnabled(context) &&
+      isAnyBadgeEnabled() &&
       !isVerifiedScope(authorScope)
     ) {
       return { reason: "unverified", handle, accountText: "" };
@@ -587,6 +695,32 @@
     });
   }
 
+  function nodeAffectsTweets(node) {
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return false;
+    }
+
+    if (
+      node.matches?.(SELECTORS.tweet) ||
+      node.querySelector?.(SELECTORS.tweet) ||
+      node.matches?.(SELECTORS.homeTab) ||
+      node.querySelector?.(SELECTORS.homeTab)
+    ) {
+      return true;
+    }
+
+    if (
+      node.matches?.(SELECTORS.verifiedBadge) ||
+      node.querySelector?.(SELECTORS.verifiedBadge) ||
+      node.matches?.(SELECTORS.userName) ||
+      node.querySelector?.(SELECTORS.userName)
+    ) {
+      return !!node.closest?.(SELECTORS.tweet);
+    }
+
+    return false;
+  }
+
   function startObserver() {
     if (observer) {
       return;
@@ -605,16 +739,7 @@
         }
 
         for (const node of mutation.addedNodes) {
-          if (node.nodeType !== Node.ELEMENT_NODE) {
-            continue;
-          }
-
-          if (
-            node.matches?.(SELECTORS.tweet) ||
-            node.querySelector?.(SELECTORS.tweet) ||
-            node.matches?.(SELECTORS.homeTab) ||
-            node.querySelector?.(SELECTORS.homeTab)
-          ) {
+          if (nodeAffectsTweets(node)) {
             shouldProcess = true;
             break;
           }
@@ -788,7 +913,22 @@
 
     if (event.data.type === "hux-following-users") {
       followingCache?.addHandles(event.data.handles);
+      return;
     }
+
+    if (event.data.type === "hux-tweet-authors") {
+      followingCache?.addTweetAuthors(event.data.tweets);
+    }
+  }
+
+  function signalReady() {
+    window.postMessage(
+      {
+        source: MESSAGE_SOURCE,
+        type: READY_TYPE,
+      },
+      window.location.origin
+    );
   }
 
   if (storage?.onChanged) {
@@ -839,6 +979,7 @@
 
     initialized = true;
     window.addEventListener("message", handlePageMessage);
+    signalReady();
     aboutAccount?.init(() => scheduleProcess());
     followingCache?.setOnUpdate(() => scheduleProcess());
     loadSettings();
