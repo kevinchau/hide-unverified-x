@@ -16,6 +16,16 @@
   <img src="https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white" alt="Firefox" />
 </p>
 
+<p align="center">
+  <a href="https://github.com/kevinchau/hide-unverified-x/releases/download/v1.7.3/hide-unverified-x-1.7.3.xpi">
+    <img src="https://img.shields.io/badge/Install%20for%20Firefox-signed%20.xpi-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white" alt="Install signed Firefox add-on (v1.7.3)" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>Permanent Mozilla-signed install · auto-updates via <a href="updates.json">updates.json</a> · <a href="https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.7.3">all releases</a></sub>
+</p>
+
 A lightweight browser extension for **Chrome** and **Firefox** that filters posts on [X](https://x.com) by:
 
 - **Verification badge** — blue, gold, and silver (government) checks, toggled independently
@@ -27,8 +37,9 @@ Everything runs in your browser. No developer API keys. No tracking.
 
 ## Contents
 
+- [Install](#install)
 - [Features](#features)
-- [Sideload (no app store)](#sideload-no-app-store)
+- [Sideload (developers)](#sideload-developers)
 - [Chrome Web Store](#chrome-web-store) *(optional)*
 - [Firefox signing](#firefox-signing) *(optional)*
 - [Popup settings](#popup-settings)
@@ -39,6 +50,32 @@ Everything runs in your browser. No developer API keys. No tracking.
 - [Privacy](#privacy)
 - [Changelog](#changelog)
 - [License](#license)
+
+---
+
+## Install
+
+### Firefox (recommended)
+
+Click **Install for Firefox** at the top of this page, or [download the signed `.xpi`](https://github.com/kevinchau/hide-unverified-x/releases/download/v1.7.3/hide-unverified-x-1.7.3.xpi) from the [v1.7.3 release](https://github.com/kevinchau/hide-unverified-x/releases/tag/v1.7.3).
+
+1. Open the link in **Firefox** (not Chrome or Safari).
+2. Confirm the install prompt if Firefox shows one.
+3. If Firefox only downloads the file: **Add-ons and themes** (`about:addons`) → gear icon → **Install Add-on From File…** → select `hide-unverified-x-1.7.3.xpi`.
+
+The signed build stays installed across restarts and picks up new versions automatically (see [Self-hosted updates](#self-hosted-updates-github-releases) under Firefox signing).
+
+### Chrome
+
+Use [Sideload (developers)](#sideload-developers) below, or publish via the [Chrome Web Store](#chrome-web-store) flow if you are packaging for the store.
+
+### Recommended first setup
+
+1. Open the extension popup on X
+2. Leave **Blue check** and **Gold check** on (default)
+3. Turn on **Silver check** if you want government officials visible
+4. Enable **About-account filter** for For you / Replies if you want region blocking
+5. In **Advanced settings**, click **Use suggested spam blocklist** for South Asia + Africa presets
 
 ---
 
@@ -55,9 +92,9 @@ Everything runs in your browser. No developer API keys. No tracking.
 
 ---
 
-## Sideload (no app store)
+## Sideload (developers)
 
-Install directly from this repo — no Chrome Web Store or Firefox Add-ons account required.
+For local development or Chrome install without the Web Store. **Firefox users should use the [signed install button](#install) at the top** instead of a temporary add-on.
 
 ### 1. Prepare sideload folders
 
@@ -89,15 +126,15 @@ Chrome keeps the extension until you remove it. **Developer mode** must stay on.
 
 > Chrome cannot install the `.zip` directly — only an unpacked folder.
 
-### 3. Firefox — Temporary Add-on
+### 3. Firefox — Temporary Add-on (dev only)
+
+> Prefer the [signed `.xpi` install](#install) at the top for a permanent install.
 
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on…**
 3. Select **`dist/sideload/firefox/manifest.json`**
 
 Firefox loads it for the current session. **Re-load the same manifest after every browser restart** (bookmark `about:debugging` to make this quick).
-
-> Without Mozilla signing, Firefox does not allow permanent unsigned installs. Sideloading is intentionally temporary.
 
 ### Updating
 
@@ -107,14 +144,6 @@ npm run sideload
 ```
 
 Then reload the extension in Chrome (`chrome://extensions` → Reload) or re-pick the manifest in Firefox debugging.
-
-### Recommended first setup
-
-1. Open the extension popup on X
-2. Leave **Blue check** and **Gold check** on (default)
-3. Turn on **Silver check** if you want government officials visible
-4. Enable **About-account filter** for For you / Replies if you want region blocking
-5. In **Advanced settings**, click **Use suggested spam blocklist** for South Asia + Africa presets
 
 ---
 
