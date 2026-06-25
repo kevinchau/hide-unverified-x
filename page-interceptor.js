@@ -205,12 +205,17 @@
       normalized.includes("gefolgt von");
     const hasYouFollow =
       normalized.includes("you follow") ||
+      normalized.includes("others you follow") ||
       normalized.includes("vous suivez") ||
       normalized.includes("que sigues") ||
       normalized.includes("die du folgst") ||
       normalized.includes("フォローしている");
 
     return hasFollowedBy && hasYouFollow;
+  }
+
+  function isSocialProofBranchKey(key) {
+    return /social|proof|facepile|context/i.test(String(key));
   }
 
   function typeIndicatesFollowedByYouFollow(type) {
@@ -304,32 +309,73 @@
     return false;
   }
 
-  function tryExtractSubjectHandle(value) {
-    if (!value || typeof value !== "object") {
+  function tryExtractPrimarySubjectHandle(value, visited, depth, inSocialBranch) {
+    if (!value || depth > MAX_SOCIAL_PROOF_DEPTH || typeof value !== "object") {
       return "";
     }
 
-    const tweetAuthor = tryExtractTweetAuthor(value);
-    if (tweetAuthor?.handle) {
-      return tweetAuthor.handle;
+    if (visited.has(value)) {
+      return "";
     }
 
-    const userCandidates = [
-      value.core?.user_results?.result,
-      value.user_results?.result,
-      value.result?.core?.user_results?.result,
-    ];
+    visited.add(value);
 
-    if (value.__typename === "User" || looksLikeUser(value)) {
-      userCandidates.unshift(value);
+    if (!inSocialBranch) {
+      const tweetAuthor = tryExtractTweetAuthor(value);
+      if (tweetAuthor?.handle) {
+        return tweetAuthor.handle;
+      }
+
+      const userCandidates = [
+        value.core?.user_results?.result,
+        value.user_results?.result,
+        value.result?.core?.user_results?.result,
+        value.legacy?.user,
+      ];
+
+      if (value.__typename === "User" || looksLikeUser(value)) {
+        userCandidates.unshift(value);
+      }
+
+      for (const user of userCandidates) {
+        if (!user || typeof user !== "object") {
+          continue;
+        }
+
+        const handle = readFollowingHandle(user);
+        if (handle) {
+          return handle;
+        }
+      }
     }
 
-    for (const user of userCandidates) {
-      if (!user || typeof user !== "object") {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const handle = tryExtractPrimarySubjectHandle(
+          item,
+          visited,
+          depth + 1,
+          inSocialBranch
+        );
+        if (handle) {
+          return handle;
+        }
+      }
+
+      return "";
+    }
+
+    for (const [key, child] of Object.entries(value)) {
+      if (!child || typeof child !== "object") {
         continue;
       }
 
-      const handle = readFollowingHandle(user);
+      const handle = tryExtractPrimarySubjectHandle(
+        child,
+        visited,
+        depth + 1,
+        inSocialBranch || isSocialProofBranchKey(key)
+      );
       if (handle) {
         return handle;
       }
@@ -350,7 +396,12 @@
     visited.add(value);
 
     if (subtreeHasFollowedByYouFollowProof(value, new WeakSet(), 0)) {
-      const handle = tryExtractSubjectHandle(value);
+      const handle = tryExtractPrimarySubjectHandle(
+        value,
+        new WeakSet(),
+        0,
+        false
+      );
       if (handle) {
         found.add(handle);
       }
@@ -418,26 +469,38 @@
   }
 
   function tryExtractTweetAuthor(obj) {
-    const tweetId = readTweetId(obj);
-    if (!tweetId) {
-      return null;
+    const sources = [
+      obj,
+      obj?.tweet,
+      obj?.result?.tweet,
+      obj?.tweet_results?.result?.tweet,
+      obj?.itemContent?.tweet_results?.result?.tweet,
+    ].filter((candidate) => candidate && typeof candidate === "object");
+
+    for (const source of sources) {
+      const tweetId = readTweetId(source);
+      if (!tweetId) {
+        continue;
+      }
+
+      const user = readUserFromTweet(source);
+      if (!user) {
+        continue;
+      }
+
+      const handle = readFollowingHandle(user);
+      if (!handle) {
+        continue;
+      }
+
+      return {
+        tweetId,
+        handle,
+        following: isFollowingUser(user),
+      };
     }
 
-    const user = readUserFromTweet(obj);
-    if (!user) {
-      return null;
-    }
-
-    const handle = readFollowingHandle(user);
-    if (!handle) {
-      return null;
-    }
-
-    return {
-      tweetId,
-      handle,
-      following: isFollowingUser(user),
-    };
+    return null;
   }
 
   function walkForTweetAuthors(value, found, visited) {

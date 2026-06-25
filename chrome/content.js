@@ -43,6 +43,8 @@
     socialContext: '[data-testid="socialContext"]',
     homeTab: '[role="tab"]',
     primaryColumn: '[data-testid="primaryColumn"]',
+    hoverCard:
+      '[data-testid="hoverCardParent"], [data-testid="HoverCard"], [role="tooltip"]',
     placeholder: `[${PLACEHOLDER_ATTR}]`,
   };
 
@@ -326,6 +328,7 @@
       normalized.includes("gefolgt von");
     const hasYouFollow =
       normalized.includes("you follow") ||
+      normalized.includes("others you follow") ||
       normalized.includes("vous suivez") ||
       normalized.includes("que sigues") ||
       normalized.includes("die du folgst") ||
@@ -348,26 +351,115 @@
     return handle;
   }
 
-  function scanProfileFollowedByFollowing() {
+  function extractHandleFromProfileSurface(root) {
+    const userName = root.querySelector(SELECTORS.userName);
+    if (userName) {
+      const handle = extractHandle(userName);
+      if (handle && !RESERVED_PROFILE_PATHS.has(handle)) {
+        return handle;
+      }
+    }
+
+    for (const link of root.querySelectorAll('a[href^="/"]')) {
+      const href = link.getAttribute("href") ?? "";
+      const match = href.match(/^\/([A-Za-z0-9_]{1,15})$/);
+      if (!match) {
+        continue;
+      }
+
+      const handle = match[1].toLowerCase();
+      if (!RESERVED_PROFILE_PATHS.has(handle)) {
+        return handle;
+      }
+    }
+
+    return null;
+  }
+
+  function findHandleForProofElement(element) {
+    if (!element) {
+      return null;
+    }
+
+    const hoverRoot = element.closest(SELECTORS.hoverCard);
+    if (hoverRoot) {
+      return extractHandleFromProfileSurface(hoverRoot);
+    }
+
+    const profileHandle = getProfileHandle();
+    if (profileHandle) {
+      const column = document.querySelector(SELECTORS.primaryColumn);
+      if (column?.contains(element)) {
+        return profileHandle;
+      }
+    }
+
+    const tweet = element.closest(SELECTORS.tweet);
+    if (tweet) {
+      return extractHandle(getAuthorScope(tweet));
+    }
+
+    const cell = element.closest(SELECTORS.feedCell);
+    if (cell) {
+      const cellTweet = cell.querySelector(SELECTORS.tweet);
+      if (cellTweet) {
+        return extractHandle(getAuthorScope(cellTweet));
+      }
+    }
+
+    return null;
+  }
+
+  function scanSubtreeForFollowedByProof(root) {
+    if (!root || root.nodeType !== Node.ELEMENT_NODE) {
+      return;
+    }
+
+    const treeWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (treeWalker.nextNode()) {
+      const nodeText = treeWalker.currentNode.textContent ?? "";
+      if (!textIndicatesFollowedByYouFollow(nodeText)) {
+        continue;
+      }
+
+      const handle = findHandleForProofElement(
+        treeWalker.currentNode.parentElement
+      );
+      if (handle) {
+        followingCache?.addFollowedByFollowing([handle]);
+      }
+    }
+  }
+
+  let scanProofTimer = null;
+
+  function scheduleScanFollowedByProof() {
     if (!settings.whitelistFollowedByFollowing) {
       return;
     }
 
-    const handle = getProfileHandle();
-    if (!handle) {
+    if (scanProofTimer !== null) {
+      clearTimeout(scanProofTimer);
+    }
+
+    scanProofTimer = setTimeout(() => {
+      scanProofTimer = null;
+      scanFollowedByFollowingProof();
+    }, 120);
+  }
+
+  function scanFollowedByFollowingProof() {
+    if (!settings.whitelistFollowedByFollowing) {
       return;
     }
 
-    const root =
-      document.querySelector(SELECTORS.primaryColumn) ?? document.body;
-    const treeWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const column = document.querySelector(SELECTORS.primaryColumn);
+    if (column) {
+      scanSubtreeForFollowedByProof(column);
+    }
 
-    while (treeWalker.nextNode()) {
-      const nodeText = treeWalker.currentNode.textContent ?? "";
-      if (textIndicatesFollowedByYouFollow(nodeText)) {
-        followingCache?.addFollowedByFollowing([handle]);
-        return;
-      }
+    for (const hoverCard of document.querySelectorAll(SELECTORS.hoverCard)) {
+      scanSubtreeForFollowedByProof(hoverCard);
     }
   }
 
@@ -378,6 +470,11 @@
       if (textIndicatesFollowedByYouFollow(contextEl.textContent ?? "")) {
         return true;
       }
+    }
+
+    const cellText = cell.textContent ?? "";
+    if (textIndicatesFollowedByYouFollow(cellText)) {
+      return true;
     }
 
     return false;
@@ -787,6 +884,7 @@
 
     pendingFrame = requestAnimationFrame(() => {
       pendingFrame = null;
+      scanFollowedByFollowingProof();
       processTweets();
     });
   }
@@ -850,8 +948,8 @@
         scheduleProcess();
       }
 
-      if (settings.whitelistFollowedByFollowing && getProfileHandle()) {
-        scanProfileFollowedByFollowing();
+      if (settings.whitelistFollowedByFollowing) {
+        scheduleScanFollowedByProof();
       }
     });
 
@@ -862,7 +960,7 @@
       attributeFilter: ["aria-selected"],
     });
 
-    scanProfileFollowedByFollowing();
+    scanFollowedByFollowingProof();
     processTweets();
   }
 
@@ -975,7 +1073,7 @@
   function applySettings(nextSettings) {
     settings = normalizeStoredSettings(nextSettings);
     startObserver();
-    scanProfileFollowedByFollowing();
+    scanFollowedByFollowingProof();
     processTweets();
   }
 

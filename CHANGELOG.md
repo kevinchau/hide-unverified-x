@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [1.7.6] — 2026-06-25
+
+### Fixed
+- **Followed by your follows** — detect social proof in profile hover cards (e.g. "Followed by Casey k, Penny2x, and 29 others you follow"), scan feed cells more broadly, and extract the tweet author from nested GraphQL tweet wrappers
+
 ## [1.7.5] — 2026-06-23
 
 ### Fixed
