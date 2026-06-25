@@ -264,8 +264,78 @@
     return false;
   }
 
-  function userHasFollowedByYouFollowProof(user) {
-    return objectIndicatesFollowedByYouFollow(user, new WeakSet(), 0);
+  function subtreeHasFollowedByYouFollowProof(value, visited, depth) {
+    if (!value || depth > MAX_SOCIAL_PROOF_DEPTH) {
+      return false;
+    }
+
+    if (typeof value === "string") {
+      return textIndicatesFollowedByYouFollow(value);
+    }
+
+    if (typeof value !== "object") {
+      return false;
+    }
+
+    if (visited.has(value)) {
+      return false;
+    }
+
+    visited.add(value);
+
+    if (Array.isArray(value)) {
+      return value.some((item) =>
+        subtreeHasFollowedByYouFollowProof(item, visited, depth + 1)
+      );
+    }
+
+    for (const child of Object.values(value)) {
+      if (typeof child === "string" && textIndicatesFollowedByYouFollow(child)) {
+        return true;
+      }
+
+      if (child && typeof child === "object") {
+        if (subtreeHasFollowedByYouFollowProof(child, visited, depth + 1)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  function tryExtractSubjectHandle(value) {
+    if (!value || typeof value !== "object") {
+      return "";
+    }
+
+    const tweetAuthor = tryExtractTweetAuthor(value);
+    if (tweetAuthor?.handle) {
+      return tweetAuthor.handle;
+    }
+
+    const userCandidates = [
+      value.core?.user_results?.result,
+      value.user_results?.result,
+      value.result?.core?.user_results?.result,
+    ];
+
+    if (value.__typename === "User" || looksLikeUser(value)) {
+      userCandidates.unshift(value);
+    }
+
+    for (const user of userCandidates) {
+      if (!user || typeof user !== "object") {
+        continue;
+      }
+
+      const handle = readFollowingHandle(user);
+      if (handle) {
+        return handle;
+      }
+    }
+
+    return "";
   }
 
   function walkForFollowedByFollowingUsers(value, found, visited) {
@@ -279,18 +349,18 @@
 
     visited.add(value);
 
+    if (subtreeHasFollowedByYouFollowProof(value, new WeakSet(), 0)) {
+      const handle = tryExtractSubjectHandle(value);
+      if (handle) {
+        found.add(handle);
+      }
+    }
+
     if (Array.isArray(value)) {
       for (const item of value) {
         walkForFollowedByFollowingUsers(item, found, visited);
       }
       return;
-    }
-
-    if (looksLikeUser(value)) {
-      const handle = readFollowingHandle(value);
-      if (handle && userHasFollowedByYouFollowProof(value)) {
-        found.add(handle);
-      }
     }
 
     for (const child of Object.values(value)) {

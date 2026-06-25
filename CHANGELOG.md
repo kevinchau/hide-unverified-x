@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [1.7.5] — 2026-06-23
+
+### Fixed
+- **Followed by your follows** whitelist — detect social-context labels on feed tweets (not only cached profile visits); GraphQL parsing now pairs social proof with the tweet/profile subject instead of the mentioned friends
+
 ## [1.7.4] — 2026-06-23
 
 ### Added

@@ -371,6 +371,18 @@
     }
   }
 
+  function tweetHasFollowedByYouFollowContext(tweet) {
+    const cell = tweet.closest(SELECTORS.feedCell) ?? tweet;
+
+    for (const contextEl of cell.querySelectorAll(SELECTORS.socialContext)) {
+      if (textIndicatesFollowedByYouFollow(contextEl.textContent ?? "")) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   function isFollowWhitelisted(tweet, handle, context) {
     if (settings.whitelistFollowing && context === "following") {
       return true;
@@ -380,12 +392,17 @@
       return true;
     }
 
-    if (
-      settings.whitelistFollowedByFollowing &&
-      handle &&
-      followingCache?.isFollowedByFollowing(handle)
-    ) {
-      return true;
+    if (settings.whitelistFollowedByFollowing) {
+      if (handle && followingCache?.isFollowedByFollowing(handle)) {
+        return true;
+      }
+
+      if (tweetHasFollowedByYouFollowContext(tweet)) {
+        if (handle) {
+          followingCache?.addFollowedByFollowing([handle]);
+        }
+        return true;
+      }
     }
 
     if (!settings.whitelistFollowing) {
