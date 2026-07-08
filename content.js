@@ -10,7 +10,12 @@
   const CONTEXT_ATTR = "data-hux-context";
   const REVEALED_ATTR = "data-hux-revealed";
   const PLACEHOLDER_ATTR = "data-hux-placeholder";
+  const PLACEHOLDER_FP_ATTR = "data-hux-ph-fp";
   const COUNTED_ATTR = "data-hux-counted";
+  const FINGERPRINT_ATTR = "data-hux-fp";
+  const MAX_MESSAGE_ARRAY = 500;
+  const HANDLE_PATTERN = /^[A-Za-z0-9_]{1,15}$/;
+  const QUERY_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
   const DEFAULT_SETTINGS = {
     forYou: true,
@@ -37,7 +42,6 @@
   const SELECTORS = {
     tweet: 'article[data-testid="tweet"]',
     userName: '[data-testid="User-Name"]',
-    quotedTweet: '[data-testid="card.wrapper"]',
     feedCell: '[data-testid="cellInnerDiv"]',
     verifiedBadge: '[data-testid="icon-verified"]',
     socialContext: '[data-testid="socialContext"]',
@@ -67,6 +71,7 @@
   let observer = null;
   let pendingFrame = null;
   let hiddenCount = 0;
+  let lastPathname = location.pathname;
 
   const storage = globalThis.chrome?.storage?.sync ?? globalThis.browser?.storage?.sync;
   const countryMatcher = globalThis.HUXCountry;
@@ -97,23 +102,42 @@
     return match ? match[1] : null;
   }
 
+  function isInsideNestedTweet(element, tweet) {
+    if (!element) {
+      return false;
+    }
+
+    const nearestTweet = element.closest(SELECTORS.tweet);
+    return !!nearestTweet && nearestTweet !== tweet;
+  }
+
+  function getNestedQuotedTweet(tweet) {
+    return tweet.querySelector(SELECTORS.tweet);
+  }
+
   function getPrimaryUserName(tweet) {
     for (const userName of tweet.querySelectorAll(SELECTORS.userName)) {
-      if (!userName.closest(SELECTORS.quotedTweet)) {
+      if (!isInsideNestedTweet(userName, tweet)) {
         return userName;
       }
     }
 
-    return tweet.querySelector(SELECTORS.userName);
+    return null;
   }
 
   function getQuotedUserName(tweet) {
-    const quoted = tweet.querySelector(SELECTORS.quotedTweet);
+    const quoted = getNestedQuotedTweet(tweet);
     return quoted?.querySelector(SELECTORS.userName) ?? null;
   }
 
   function getSocialContext(tweet) {
-    return tweet.querySelector(SELECTORS.socialContext);
+    for (const socialContext of tweet.querySelectorAll(SELECTORS.socialContext)) {
+      if (!isInsideNestedTweet(socialContext, tweet)) {
+        return socialContext;
+      }
+    }
+
+    return null;
   }
 
   function isReply(tweet) {
@@ -178,12 +202,16 @@
   }
 
   function isQuoteTweet(tweet) {
-    return !!tweet.querySelector(SELECTORS.quotedTweet);
+    return !!getNestedQuotedTweet(tweet);
   }
 
   function getAuthorScope(tweet) {
     if (isRetweet(tweet) && settings.retweetAuthor === "retweeter") {
-      return getSocialContext(tweet) ?? getPrimaryUserName(tweet);
+      const socialContext = getSocialContext(tweet);
+      if (socialContext && !isInsideNestedTweet(socialContext, tweet)) {
+        return socialContext;
+      }
+      return getPrimaryUserName(tweet);
     }
 
     if (isQuoteTweet(tweet) && settings.quoteAuthor === "quoted") {
@@ -632,6 +660,11 @@
     ensureAboutAccountLookup(handle, context);
 
     const entry = getAboutEntry(handle);
+    // Fail open on lookup errors — do not hide when about-account fetch failed.
+    if (entry?.status === "error") {
+      return false;
+    }
+
     if (!entry || entry.status === "pending") {
       return settings.countryUnknown === "hide";
     }
@@ -673,26 +706,25 @@
     runtime?.sendMessage?.({ type: "setHiddenCount", count: hiddenCount });
   }
 
-  function adjustHiddenCount(delta) {
-    if (delta === 0) {
+  function recomputeHiddenCount() {
+    const next = document.querySelectorAll(`[${COUNTED_ATTR}]`).length;
+    if (next === hiddenCount) {
       return;
     }
 
-    hiddenCount = Math.max(0, hiddenCount + delta);
+    hiddenCount = next;
     syncHiddenCount();
   }
 
   function markHiddenCounted(tweet, counted) {
     if (counted) {
-      tweet.setAttribute(COUNTED_ATTR, "true");
-      adjustHiddenCount(1);
+      if (!tweet.hasAttribute(COUNTED_ATTR)) {
+        tweet.setAttribute(COUNTED_ATTR, "true");
+      }
       return;
     }
 
-    if (tweet.hasAttribute(COUNTED_ATTR)) {
-      tweet.removeAttribute(COUNTED_ATTR);
-      adjustHiddenCount(-1);
-    }
+    tweet.removeAttribute(COUNTED_ATTR);
   }
 
   function clearFilteredState(tweet, context) {
@@ -707,8 +739,14 @@
   }
 
   function revealTweet(tweet) {
+    const context = getTweetContext(tweet);
     tweet.setAttribute(REVEALED_ATTR, "true");
-    clearFilteredState(tweet, getTweetContext(tweet));
+    clearFilteredState(tweet, context);
+    tweet.setAttribute(
+      FINGERPRINT_ATTR,
+      buildTweetFingerprint(null, context)
+    );
+    recomputeHiddenCount();
   }
 
   function addToWhitelist(handle) {
@@ -738,16 +776,32 @@
     return handle ? `Post from @${handle} hidden` : "Unverified post hidden";
   }
 
+  function buildPlaceholderFingerprint(handle, reason, labelText) {
+    return `${handle || ""}|${reason || ""}|${labelText}`;
+  }
+
   function createPlaceholder(tweet, handle, reason, accountText) {
+    const labelText = buildPlaceholderLabel(handle, reason, accountText);
+    const fingerprint = buildPlaceholderFingerprint(handle, reason, labelText);
+    const existing = getPlaceholder(tweet);
+
+    // D1: skip remove+recreate when handle/reason/label are unchanged.
+    if (existing?.getAttribute(PLACEHOLDER_FP_ATTR) === fingerprint) {
+      return existing;
+    }
+
     removePlaceholder(tweet);
 
     const placeholder = document.createElement("div");
     placeholder.setAttribute(PLACEHOLDER_ATTR, "true");
+    placeholder.setAttribute(PLACEHOLDER_FP_ATTR, fingerprint);
+    placeholder.setAttribute("role", "status");
+    placeholder.setAttribute("aria-live", "polite");
     placeholder.className = "hux-placeholder";
 
     const label = document.createElement("span");
     label.className = "hux-placeholder-label";
-    label.textContent = buildPlaceholderLabel(handle, reason, accountText);
+    label.textContent = labelText;
 
     const actions = document.createElement("div");
     actions.className = "hux-placeholder-actions";
@@ -756,6 +810,10 @@
     showOnceButton.type = "button";
     showOnceButton.className = "hux-placeholder-button";
     showOnceButton.textContent = "Show once";
+    showOnceButton.setAttribute(
+      "aria-label",
+      handle ? `Show post from @${handle} once` : "Show hidden post once"
+    );
     showOnceButton.addEventListener("click", (event) => {
       event.stopPropagation();
       revealTweet(tweet);
@@ -766,13 +824,24 @@
     alwaysShowButton.className =
       "hux-placeholder-button hux-placeholder-button-secondary";
     alwaysShowButton.textContent = "Always show";
-    alwaysShowButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      if (handle) {
+
+    if (handle) {
+      alwaysShowButton.setAttribute(
+        "aria-label",
+        `Always show posts from @${handle}`
+      );
+      alwaysShowButton.addEventListener("click", (event) => {
+        event.stopPropagation();
         addToWhitelist(handle);
-      }
-      revealTweet(tweet);
-    });
+        revealTweet(tweet);
+      });
+    } else {
+      alwaysShowButton.disabled = true;
+      alwaysShowButton.setAttribute(
+        "aria-label",
+        "Always show unavailable without account handle"
+      );
+    }
 
     actions.append(showOnceButton, alwaysShowButton);
     placeholder.append(label, actions);
@@ -784,8 +853,6 @@
 
   function applyHiddenState(tweet, context, handle, reason, accountText) {
     const target = getHideTarget(tweet);
-    const wasFiltered =
-      target.hasAttribute(HIDDEN_ATTR) || tweet.hasAttribute(DIMMED_ATTR);
 
     target.setAttribute(HIDDEN_ATTR, "true");
     tweet.removeAttribute(DIMMED_ATTR);
@@ -798,15 +865,11 @@
       removePlaceholder(tweet);
     }
 
-    if (!wasFiltered && !tweet.hasAttribute(COUNTED_ATTR)) {
-      markHiddenCounted(tweet, true);
-    }
+    markHiddenCounted(tweet, true);
   }
 
   function applyDimmedState(tweet, context) {
     const target = getHideTarget(tweet);
-    const wasFiltered =
-      target.hasAttribute(HIDDEN_ATTR) || tweet.hasAttribute(DIMMED_ATTR);
 
     target.removeAttribute(HIDDEN_ATTR);
     tweet.removeAttribute(HIDDEN_ATTR);
@@ -815,9 +878,7 @@
     tweet.setAttribute(CONTEXT_ATTR, context);
     removePlaceholder(tweet);
 
-    if (!wasFiltered && !tweet.hasAttribute(COUNTED_ATTR)) {
-      markHiddenCounted(tweet, true);
-    }
+    markHiddenCounted(tweet, true);
   }
 
   function getFilterDecision(tweet) {
@@ -850,9 +911,36 @@
     return null;
   }
 
+  function buildTweetFingerprint(decision, context) {
+    if (!decision) {
+      return `visible|${context}|${settings.displayMode}`;
+    }
+
+    return [
+      settings.displayMode,
+      settings.showPlaceholders ? "ph" : "noph",
+      context,
+      decision.reason || "",
+      decision.handle || "",
+      decision.accountText || "",
+    ].join("|");
+  }
+
+  function isTopLevelTweet(tweet) {
+    return !tweet.parentElement?.closest(SELECTORS.tweet);
+  }
+
   function processTweet(tweet) {
     const context = getTweetContext(tweet);
     const decision = getFilterDecision(tweet);
+    const fingerprint = buildTweetFingerprint(decision, context);
+
+    // D6: skip DOM work when filter decision and settings fingerprint are unchanged.
+    if (tweet.getAttribute(FINGERPRINT_ATTR) === fingerprint) {
+      return;
+    }
+
+    tweet.setAttribute(FINGERPRINT_ATTR, fingerprint);
 
     if (!decision) {
       clearFilteredState(tweet, context);
@@ -874,7 +962,14 @@
   }
 
   function processTweets(root = document) {
-    root.querySelectorAll(SELECTORS.tweet).forEach(processTweet);
+    root.querySelectorAll(SELECTORS.tweet).forEach((tweet) => {
+      if (!isTopLevelTweet(tweet)) {
+        return;
+      }
+
+      processTweet(tweet);
+    });
+    recomputeHiddenCount();
   }
 
   function scheduleProcess() {
@@ -1088,42 +1183,141 @@
     });
   }
 
+  function sanitizeHandle(value) {
+    if (typeof value !== "string") {
+      return null;
+    }
+
+    const handle = value.trim().replace(/^@/, "").toLowerCase();
+    return HANDLE_PATTERN.test(handle) ? handle : null;
+  }
+
+  function sanitizeQueryId(value) {
+    if (typeof value !== "string") {
+      return null;
+    }
+
+    const queryId = value.trim();
+    return QUERY_ID_PATTERN.test(queryId) ? queryId : null;
+  }
+
+  function sanitizeAboutText(value) {
+    if (typeof value !== "string") {
+      return "";
+    }
+
+    return value.trim().slice(0, 500);
+  }
+
+  function sanitizeHandleList(value) {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const handles = [];
+    const limit = Math.min(value.length, MAX_MESSAGE_ARRAY);
+
+    for (let i = 0; i < limit; i += 1) {
+      const handle = sanitizeHandle(value[i]);
+      if (handle) {
+        handles.push(handle);
+      }
+    }
+
+    return handles;
+  }
+
+  function sanitizeTweetAuthors(value) {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const tweets = [];
+    const limit = Math.min(value.length, MAX_MESSAGE_ARRAY);
+
+    for (let i = 0; i < limit; i += 1) {
+      const raw = value[i];
+      if (!raw || typeof raw !== "object") {
+        continue;
+      }
+
+      const tweetId = String(raw.tweetId ?? raw.tweet_id ?? "").trim();
+      if (!/^\d{1,30}$/.test(tweetId)) {
+        continue;
+      }
+
+      const handle = sanitizeHandle(raw.handle);
+      if (!handle) {
+        continue;
+      }
+
+      tweets.push({
+        tweetId,
+        handle,
+        following: raw.following === true,
+      });
+    }
+
+    return tweets;
+  }
+
   function handlePageMessage(event) {
     if (
       event.source !== window ||
       event.origin !== window.location.origin ||
-      event.data?.source !== MESSAGE_SOURCE
+      event.data?.source !== MESSAGE_SOURCE ||
+      typeof event.data !== "object" ||
+      event.data === null
     ) {
       return;
     }
 
-    if (event.data.type === "hux-about-query-id") {
-      aboutAccount?.setQueryId(event.data.queryId);
+    const { type } = event.data;
+
+    if (type === "hux-about-query-id") {
+      const queryId = sanitizeQueryId(event.data.queryId);
+      if (queryId) {
+        aboutAccount?.setQueryId(queryId);
+      }
       return;
     }
 
-    if (event.data.type === "hux-about-account") {
+    if (type === "hux-about-account") {
+      const handle = sanitizeHandle(event.data.handle);
+      if (!handle) {
+        return;
+      }
+
       aboutAccount?.upsertFromInterceptor(
-        event.data.handle,
-        event.data.basedIn,
-        event.data.connectedVia,
-        event.data.accurate
+        handle,
+        sanitizeAboutText(event.data.basedIn),
+        sanitizeAboutText(event.data.connectedVia),
+        event.data.accurate !== false
       );
       return;
     }
 
-    if (event.data.type === "hux-following-users") {
-      followingCache?.addHandles(event.data.handles);
+    if (type === "hux-following-users") {
+      const handles = sanitizeHandleList(event.data.handles);
+      if (handles.length) {
+        followingCache?.addHandles(handles);
+      }
       return;
     }
 
-    if (event.data.type === "hux-tweet-authors") {
-      followingCache?.addTweetAuthors(event.data.tweets);
+    if (type === "hux-tweet-authors") {
+      const tweets = sanitizeTweetAuthors(event.data.tweets);
+      if (tweets.length) {
+        followingCache?.addTweetAuthors(tweets);
+      }
       return;
     }
 
-    if (event.data.type === "hux-followed-by-following") {
-      followingCache?.addFollowedByFollowing(event.data.handles);
+    if (type === "hux-followed-by-following") {
+      const handles = sanitizeHandleList(event.data.handles);
+      if (handles.length) {
+        followingCache?.addFollowedByFollowing(handles);
+      }
     }
   }
 
@@ -1173,6 +1367,22 @@
 
   let initialized = false;
 
+  function startPathWatcher() {
+    lastPathname = location.pathname;
+
+    setInterval(() => {
+      if (location.pathname === lastPathname) {
+        return;
+      }
+
+      lastPathname = location.pathname;
+      // SPA navigation: reset count and reprocess the new timeline.
+      hiddenCount = 0;
+      syncHiddenCount();
+      scheduleProcess();
+    }, 1000);
+  }
+
   function init() {
     if (!document.body) {
       document.addEventListener("DOMContentLoaded", init, { once: true });
@@ -1188,6 +1398,7 @@
     signalReady();
     aboutAccount?.init(() => scheduleProcess());
     followingCache?.setOnUpdate(() => scheduleProcess());
+    startPathWatcher();
     loadSettings();
   }
 
