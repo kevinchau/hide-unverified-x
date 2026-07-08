@@ -8,6 +8,7 @@
   const MIN_INTERVAL_MS = 1500;
   const MAX_CACHE_ENTRIES = 5000;
   const EMPTY_RETRY_MS = 60 * 60 * 1000;
+  const ERROR_RETRY_MS = 30_000;
 
   let queryId = FALLBACK_QUERY_ID;
   let onUpdate = null;
@@ -34,6 +35,17 @@
       connectedVia: "",
       accurate: true,
       empty: true,
+      fetchedAt: Date.now(),
+    };
+  }
+
+  function errorEntry() {
+    return {
+      status: "error",
+      basedIn: "",
+      connectedVia: "",
+      accurate: true,
+      empty: false,
       fetchedAt: Date.now(),
     };
   }
@@ -99,15 +111,40 @@
   }
 
   function shouldRetryEntry(entry) {
-    if (!entry || entry.status !== "resolved" || !entry.empty) {
+    if (!entry) {
       return false;
     }
 
-    return Date.now() - (entry.fetchedAt ?? 0) > EMPTY_RETRY_MS;
+    const age = Date.now() - (entry.fetchedAt ?? 0);
+
+    if (entry.status === "error") {
+      return age > ERROR_RETRY_MS;
+    }
+
+    if (entry.status === "resolved" && entry.empty) {
+      return age > EMPTY_RETRY_MS;
+    }
+
+    return false;
   }
 
   function setEntry(handle, entry) {
     const key = handle.toLowerCase();
+    const existing = memoryCache.get(key);
+
+    // Prefer not to overwrite fresher resolved data (e.g. interceptor race).
+    if (
+      existing?.status === "resolved" &&
+      (existing.fetchedAt ?? 0) > (entry?.fetchedAt ?? 0)
+    ) {
+      return;
+    }
+
+    // Prefer resolved data over a concurrent error response.
+    if (existing?.status === "resolved" && entry?.status === "error") {
+      return;
+    }
+
     memoryCache.set(key, entry);
     trimMemoryCache();
     schedulePersist();
@@ -145,11 +182,18 @@
 
     const key = handle.toLowerCase();
     const existing = memoryCache.get(key);
+
+    // Skip only if pending, or resolved and not yet due for empty-retry.
+    // Error entries re-queue after ERROR_RETRY_MS via shouldRetryEntry.
+    if (existing?.status === "pending" || queued.has(key)) {
+      return;
+    }
+
     if (existing?.status === "resolved" && !shouldRetryEntry(existing)) {
       return;
     }
 
-    if (queued.has(key)) {
+    if (existing?.status === "error" && !shouldRetryEntry(existing)) {
       return;
     }
 
@@ -207,9 +251,10 @@
 
       try {
         const entry = await fetchAboutAccount(handle);
-        setEntry(handle, entry ?? emptyEntry());
+        // null = no user result → error (retry soon); blank about → emptyEntry from parse
+        setEntry(handle, entry ?? errorEntry());
       } catch {
-        setEntry(handle, emptyEntry());
+        setEntry(handle, errorEntry());
       }
     }
 
@@ -247,8 +292,17 @@
       const entries = Object.entries(cache).slice(-MAX_CACHE_ENTRIES);
 
       for (const [handle, entry] of entries) {
-        if (entry?.status === "resolved") {
-          memoryCache.set(handle.toLowerCase(), entry);
+        if (entry?.status !== "resolved") {
+          continue;
+        }
+
+        const key = handle.toLowerCase();
+        // Only load from disk if missing or disk entry is as-fresh or fresher.
+        if (
+          !memoryCache.has(key) ||
+          (entry.fetchedAt ?? 0) >= (memoryCache.get(key).fetchedAt ?? 0)
+        ) {
+          memoryCache.set(key, entry);
         }
       }
 
