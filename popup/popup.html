@@ -73,6 +73,15 @@
             <span class="switch" aria-hidden="true"></span>
           </label>
         </div>
+        <div class="empty-cta" id="countryEmptyCta" hidden>
+          <p class="empty-cta-copy">
+            Add countries or regions in Advanced settings so About-account
+            filtering can match accounts.
+          </p>
+          <button type="button" class="link-button compact" id="openOptionsFromCta">
+            Configure country list
+          </button>
+        </div>
       </section>
 
       <section class="section">
@@ -131,6 +140,10 @@
 
       <section class="section">
         <h2 class="section-title">Display</h2>
+        <p class="section-note">
+          Hide removes filtered posts from the feed. Dim keeps them visible but
+          faded. Placeholder cards only apply in Hide mode.
+        </p>
         <div class="segmented" role="group" aria-label="Display mode">
           <label class="segmented-option">
             <input type="radio" name="displayMode" value="hide" checked />
@@ -142,10 +155,10 @@
           </label>
         </div>
 
-        <label class="toggle compact" for="showPlaceholders">
+        <label class="toggle compact" for="showPlaceholders" id="placeholdersToggle">
           <span class="toggle-copy">
             <span class="toggle-label">Placeholder cards</span>
-            <span class="toggle-desc">Show a slim bar with reveal actions</span>
+            <span class="toggle-desc">Show a slim bar with reveal actions (Hide mode only)</span>
           </span>
           <input type="checkbox" id="showPlaceholders" checked />
           <span class="switch" aria-hidden="true"></span>

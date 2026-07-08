@@ -32,11 +32,16 @@ const tabs = globalThis.chrome?.tabs ?? globalThis.browser?.tabs;
 
 const hiddenCountEl = document.getElementById("hiddenCount");
 const openOptionsButton = document.getElementById("openOptions");
+const countryEmptyCta = document.getElementById("countryEmptyCta");
+const openOptionsFromCta = document.getElementById("openOptionsFromCta");
+const placeholdersToggle = document.getElementById("placeholdersToggle");
 const displayModeInputs = [...document.querySelectorAll('input[name="displayMode"]')];
 
 const boolInputs = Object.fromEntries(
   BOOL_KEYS.map((key) => [key, document.getElementById(key)])
 );
+
+let countryList = [];
 
 function normalizeBadgeSettings(result) {
   if (typeof result.badgeBlue === "boolean") {
@@ -102,20 +107,44 @@ function updateHiddenCount(count) {
   hiddenCountEl.textContent = `${value} filtered`;
 }
 
+function showCountUnavailable() {
+  hiddenCountEl.textContent = "Open X to see counts";
+}
+
+function isXTabUrl(url) {
+  if (!url || typeof url !== "string") {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      (parsed.hostname === "x.com" ||
+        parsed.hostname === "twitter.com" ||
+        parsed.hostname.endsWith(".x.com") ||
+        parsed.hostname.endsWith(".twitter.com"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function countKey(tabId) {
   return `hiddenCount:${tabId}`;
 }
 
 function readHiddenCount() {
   if (!sessionStorage || !tabs) {
-    updateHiddenCount(0);
+    showCountUnavailable();
     return;
   }
 
   tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
-    const tabId = activeTabs[0]?.id;
-    if (!tabId) {
-      updateHiddenCount(0);
+    const tab = activeTabs[0];
+    const tabId = tab?.id;
+    if (!tabId || !isXTabUrl(tab.url)) {
+      showCountUnavailable();
       return;
     }
 
@@ -123,6 +152,32 @@ function readHiddenCount() {
       updateHiddenCount(result[countKey(tabId)] ?? 0);
     });
   });
+}
+
+function updateCountryEmptyCta() {
+  if (!countryEmptyCta) {
+    return;
+  }
+
+  const aboutEnabled =
+    boolInputs.countryForYou.checked || boolInputs.countryReplies.checked;
+  const listEmpty = !Array.isArray(countryList) || countryList.length === 0;
+  countryEmptyCta.hidden = !(aboutEnabled && listEmpty);
+}
+
+function updatePlaceholdersAvailability() {
+  const displayMode =
+    displayModeInputs.find((input) => input.checked)?.value ?? "hide";
+  const dimSelected = displayMode === "dim";
+
+  if (boolInputs.showPlaceholders) {
+    boolInputs.showPlaceholders.disabled = dimSelected;
+  }
+
+  if (placeholdersToggle) {
+    placeholdersToggle.classList.toggle("is-disabled", dimSelected);
+    placeholdersToggle.setAttribute("aria-disabled", dimSelected ? "true" : "false");
+  }
 }
 
 function saveSettings() {
@@ -147,6 +202,9 @@ function saveSettings() {
     displayMode,
     showPlaceholders: boolInputs.showPlaceholders.checked,
   });
+
+  updateCountryEmptyCta();
+  updatePlaceholdersAvailability();
 }
 
 function applySettings(values) {
@@ -166,12 +224,29 @@ function applySettings(values) {
   for (const input of displayModeInputs) {
     input.checked = input.value === values.displayMode;
   }
+
+  updateCountryEmptyCta();
+  updatePlaceholdersAvailability();
+}
+
+function openOptionsPage() {
+  runtime?.openOptionsPage?.();
 }
 
 if (storage) {
-  storage.get({ enabled: true, ...DEFAULTS }, (result) => {
-    applySettings(normalizeStoredSettings(result));
-  });
+  storage.get(
+    {
+      enabled: true,
+      ...DEFAULTS,
+      countryList: [],
+      countryForYou: false,
+      countryReplies: false,
+    },
+    (result) => {
+      countryList = Array.isArray(result.countryList) ? result.countryList : [];
+      applySettings(normalizeStoredSettings(result));
+    }
+  );
 
   for (const key of BOOL_KEYS) {
     boolInputs[key].addEventListener("change", saveSettings);
@@ -180,27 +255,57 @@ if (storage) {
   for (const input of displayModeInputs) {
     input.addEventListener("change", saveSettings);
   }
+
+  const settingsOnChanged =
+    globalThis.chrome?.storage?.onChanged ??
+    globalThis.browser?.storage?.onChanged;
+  settingsOnChanged?.addListener((changes, areaName) => {
+    if (areaName !== "sync" && areaName !== "local") {
+      return;
+    }
+
+    if (changes.countryList) {
+      const next = changes.countryList.newValue;
+      countryList = Array.isArray(next) ? next : [];
+      updateCountryEmptyCta();
+    }
+  });
 }
 
 readHiddenCount();
 
-if (sessionStorage?.onChanged && tabs) {
-  sessionStorage.onChanged.addListener((changes, area) => {
-    if (area !== "session") {
+function handleSessionCountChange(changes) {
+  if (!tabs) {
+    return;
+  }
+
+  tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
+    const tab = activeTabs[0];
+    const tabId = tab?.id;
+    if (!tabId || !isXTabUrl(tab.url) || !changes[countKey(tabId)]) {
       return;
     }
 
-    tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
-      const tabId = activeTabs[0]?.id;
-      if (!tabId || !changes[countKey(tabId)]) {
-        return;
-      }
-
-      updateHiddenCount(changes[countKey(tabId)].newValue ?? 0);
-    });
+    updateHiddenCount(changes[countKey(tabId)].newValue ?? 0);
   });
 }
 
-openOptionsButton?.addEventListener("click", () => {
-  runtime?.openOptionsPage?.();
-});
+// Prefer chrome.storage.onChanged (covers session area). Fall back to
+// sessionStorage.onChanged only if a browser exposes that path.
+const storageOnChanged =
+  globalThis.chrome?.storage?.onChanged ??
+  globalThis.browser?.storage?.onChanged ??
+  sessionStorage?.onChanged;
+
+if (storageOnChanged) {
+  storageOnChanged.addListener((changes, areaName) => {
+    if (areaName !== "session") {
+      return;
+    }
+
+    handleSessionCountChange(changes);
+  });
+}
+
+openOptionsButton?.addEventListener("click", openOptionsPage);
+openOptionsFromCta?.addEventListener("click", openOptionsPage);
