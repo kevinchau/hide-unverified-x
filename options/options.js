@@ -1,3 +1,8 @@
+const settingsSchema = globalThis.HUXSettings;
+if (!settingsSchema) {
+  throw new Error("HUXSettings missing");
+}
+
 const storage = globalThis.chrome?.storage?.sync ?? globalThis.browser?.storage?.sync;
 
 const retweetAuthorSelect = document.getElementById("retweetAuthor");
@@ -29,21 +34,11 @@ let whitelistAutosaveTimer = null;
 let countryAutosaveTimer = null;
 
 function normalizeWhitelist(text) {
-  return [
-    ...new Set(
-      text
-        .split(/\r?\n/)
-        .map((line) => line.trim().replace(/^@/, "").toLowerCase())
-        .filter(Boolean)
-    ),
-  ];
+  return settingsSchema.normalizeWhitelist(String(text).split(/\r?\n/));
 }
 
 function normalizeCountryList(text) {
-  return text
-    .split(/[\n,]/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  return settingsSchema.normalizeCountryList(String(text));
 }
 
 function formatWhitelist(handles) {
@@ -195,7 +190,7 @@ if (storage) {
       quoteAuthorSelect.value =
         result.quoteAuthor === "quoted" ? "quoted" : "quoter";
       whitelistTextarea.value = formatWhitelist(
-        Array.isArray(result.whitelist) ? result.whitelist : []
+        settingsSchema.normalizeWhitelist(result.whitelist)
       );
       whitelistFollowingInput.checked = result.whitelistFollowing === true;
       whitelistFollowedByFollowingInput.checked =
@@ -208,7 +203,7 @@ if (storage) {
           ? result.countryMatchFields
           : "both";
       countryListTextarea.value = formatCountryList(
-        Array.isArray(result.countryList) ? result.countryList : []
+        settingsSchema.normalizeCountryList(result.countryList)
       );
       countryUnknownSelect.value =
         result.countryUnknown === "hide" ? "hide" : "show";

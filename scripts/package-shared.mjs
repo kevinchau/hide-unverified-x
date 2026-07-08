@@ -29,6 +29,7 @@ export const COPY_FILES = [
   "about-account.js",
   "following-cache.js",
   "country-match.js",
+  "settings-schema.js",
   "LICENSE",
 ];
 

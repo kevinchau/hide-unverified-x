@@ -1,15 +1,9 @@
-const DEFAULTS = {
-  forYou: true,
-  following: true,
-  replies: true,
-  badgeBlue: true,
-  badgeGold: true,
-  badgeGovernment: false,
-  displayMode: "hide",
-  showPlaceholders: true,
-  whitelistFollowing: false,
-  whitelistFollowedByFollowing: false,
-};
+const settingsSchema = globalThis.HUXSettings;
+if (!settingsSchema) {
+  throw new Error("HUXSettings missing");
+}
+const DEFAULT_SETTINGS = settingsSchema.DEFAULT_SETTINGS;
+const normalizeStoredSettings = settingsSchema.normalizeStoredSettings;
 
 const BOOL_KEYS = [
   "forYou",
@@ -42,65 +36,6 @@ const boolInputs = Object.fromEntries(
 );
 
 let countryList = [];
-
-function normalizeBadgeSettings(result) {
-  if (typeof result.badgeBlue === "boolean") {
-    return {
-      badgeBlue: result.badgeBlue,
-      badgeGold: result.badgeGold !== false,
-      badgeGovernment: result.badgeGovernment === true,
-    };
-  }
-
-  if (result.badgeType === "any") {
-    return {
-      badgeBlue: true,
-      badgeGold: true,
-      badgeGovernment: true,
-    };
-  }
-
-  return {
-    badgeBlue: true,
-    badgeGold: true,
-    badgeGovernment: false,
-  };
-}
-
-function normalizeStoredSettings(result) {
-  const hasContextSettings = ["forYou", "following", "replies"].some(
-    (key) => typeof result[key] === "boolean"
-  );
-
-  if (hasContextSettings) {
-    return {
-      forYou: result.forYou ?? DEFAULTS.forYou,
-      following: result.following ?? DEFAULTS.following,
-      replies: result.replies ?? DEFAULTS.replies,
-      ...normalizeBadgeSettings(result),
-      displayMode: result.displayMode === "dim" ? "dim" : "hide",
-      showPlaceholders:
-        typeof result.showPlaceholders === "boolean"
-          ? result.showPlaceholders
-          : DEFAULTS.showPlaceholders,
-      countryForYou: result.countryForYou === true,
-      countryReplies: result.countryReplies === true,
-      whitelistFollowing: result.whitelistFollowing === true,
-      whitelistFollowedByFollowing: result.whitelistFollowedByFollowing === true,
-    };
-  }
-
-  if (typeof result.enabled === "boolean") {
-    return {
-      ...DEFAULTS,
-      forYou: result.enabled,
-      following: result.enabled,
-      replies: result.enabled,
-    };
-  }
-
-  return { ...DEFAULTS };
-}
 
 function updateHiddenCount(count) {
   const value = Number.isFinite(count) ? count : 0;
@@ -237,13 +172,10 @@ if (storage) {
   storage.get(
     {
       enabled: true,
-      ...DEFAULTS,
-      countryList: [],
-      countryForYou: false,
-      countryReplies: false,
+      ...DEFAULT_SETTINGS,
     },
     (result) => {
-      countryList = Array.isArray(result.countryList) ? result.countryList : [];
+      countryList = settingsSchema.normalizeCountryList(result.countryList);
       applySettings(normalizeStoredSettings(result));
     }
   );
