@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+Multiagent review fixes (workstreams A–E):
+
+### Fixed
+- **Cache races (A)** — Distinguish about-account error vs empty entries with backoff retry; merge init by `fetchedAt` so fresher interceptor data is not clobbered; following caches wait for load before persist and flush dirty state after load
+- **Country match (B)** — Word/token boundary matching to avoid substring false positives (e.g. `niger` ⊂ `nigeria`); Node unit tests and `npm test`
+- **Interceptor (C)** — Cap `messageBuffer` (drop oldest); coerce/sanitize handles and about strings at publish time
+- **Content filter (D)** — Idempotent placeholders; quote detection via nested tweet article; recompute hidden count from DOM and reset on navigation; validate untrusted `postMessage` payloads; about-account errors fail open (show); skip reprocessing when tweet fingerprint is unchanged; placeholder a11y (`role=status`, focus-visible, disable Always show without handle)
+- **UI (E)** — Options textarea autosave (debounced) with Save buttons retained; confirm before overwriting suggested blocklist; per-section status messages; empty About-account CTA in popup; focus-visible styles; popup count when not on X with `storage.onChanged` session fallback; prefer `activeTab` for popup count; dim mode greys out placeholders with reason and clearer Display helper copy
+
+### Docs
+- Privacy section accuracy (local caches, `storage.sync`, X GraphQL session, Firefox GitHub update checks, no analytics)
+- Version badge and install links aligned to 1.7.6 / `releases/latest`
+- Chrome Web Store listing: privacy + permission justifications (`activeTab`, follow caches)
+
 ## [1.7.6] — 2026-06-25
 
 ### Fixed

@@ -9,15 +9,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kevinchau/hide-unverified-x/releases/latest"><img src="https://img.shields.io/badge/version-1.7.4-1d9bf0.svg" alt="Version 1.7.4" /></a>
+  <a href="https://github.com/kevinchau/hide-unverified-x/releases/latest"><img src="https://img.shields.io/badge/version-1.7.6-1d9bf0.svg" alt="Version 1.7.6" /></a>
   <img src="https://img.shields.io/badge/Chrome-supported-4285F4?logo=googlechrome&logoColor=white" alt="Chrome" />
   <img src="https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white" alt="Firefox" />
   <img src="https://img.shields.io/badge/Safari-supported-006CFF?logo=safari&logoColor=white" alt="Safari" />
 </p>
 
 <p align="center">
-  <a href="https://github.com/kevinchau/hide-unverified-x/releases/download/v1.7.3/hide-unverified-x-1.7.3.xpi">
-    <img src="https://img.shields.io/badge/Install%20for%20Firefox-signed%20.xpi-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white" alt="Install signed Firefox add-on (v1.7.3)" />
+  <a href="https://github.com/kevinchau/hide-unverified-x/releases/latest">
+    <img src="https://img.shields.io/badge/Install%20for%20Firefox-signed%20.xpi-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white" alt="Install signed Firefox add-on (latest)" />
   </a>
   &nbsp;
   <a href="#chrome">
@@ -54,11 +54,11 @@ Hide or dim posts on [X](https://x.com) that lack the verification badges you ca
 
 ### Firefox
 
-Click **Install for Firefox** above, or [download the signed add-on](https://github.com/kevinchau/hide-unverified-x/releases/download/v1.7.3/hide-unverified-x-1.7.3.xpi).
+Click **Install for Firefox** above, or [download the signed add-on from the latest release](https://github.com/kevinchau/hide-unverified-x/releases/latest) (`hide-unverified-x-1.7.6.xpi`).
 
 1. Open the link in **Firefox**.
 2. Confirm the install prompt if one appears.
-3. If Firefox only downloads the file: open **Add-ons and themes** → gear icon → **Install Add-on From File…** → select `hide-unverified-x-1.7.3.xpi`.
+3. If Firefox only downloads the file: open **Add-ons and themes** → gear icon → **Install Add-on From File…** → select `hide-unverified-x-1.7.6.xpi`.
 
 ### Chrome
 
@@ -194,12 +194,22 @@ You can also type shortcuts `southasia` or `africa` in the blocklist field.
 
 ## Privacy
 
-This extension does not collect, transmit, or sell your data. It stores only:
+This extension does not collect, transmit, or sell your data. There is **no third-party analytics**.
 
-- Your settings and whitelist
-- Locally cached About-account lookups
+**Stored on your device:**
 
-All filtering happens in your browser.
+- Settings and whitelist
+- About-account lookups (`storage.local`)
+- Following handles — accounts you follow (`storage.local`)
+- Followed-by-following handles — social-proof whitelist (`storage.local`)
+
+**Settings sync:** Settings and whitelist use `storage.sync`, so the browser may sync them across your signed-in profile. That sync is browser-managed; data is not sent to the extension author.
+
+**About-account filter:** When enabled, may call X GraphQL with your existing logged-in X session to look up account origin (`Account based in` / `Connected via`). Results stay in the local cache. No API keys are required.
+
+**Firefox updates:** The signed Firefox add-on checks for new versions via GitHub (`updates.json` / Releases). Chrome and Safari installs from this repo do not phone home.
+
+All filtering runs in your browser.
 
 ---
 

@@ -17,8 +17,8 @@ Filter unverified X posts by blue, gold, or silver badge and About-account regio
 
 Permission justifications (for reviewer form)
 ---------------------------------------------
-storage     — Save filter settings, whitelist, and cached About-account / follow lookups locally.
-tabs        — Read per-tab filtered-post count for the popup badge.
+storage     — Save filter settings and whitelist (via storage.sync where available), plus local caches: About-account lookups, following handles, and followed-by-following handles used for whitelist features.
+activeTab   — Read the filtered-post count for the popup on the tab where the user opens the extension (no broad tabs access).
 
 Host permissions: none declared. Content scripts run only on x.com and twitter.com.
 
@@ -30,4 +30,16 @@ Filter posts on X/Twitter by verification badge and About this account metadata 
 
 Privacy
 -------
-No data collected or transmitted. All settings and caches stay on the user's device.
+No data collected, transmitted, or sold to the extension author. No third-party analytics.
+
+Local device storage only:
+- Settings and whitelist
+- About-account lookup cache
+- Following handles cache
+- Followed-by-following handles cache
+
+Settings may sync across the user's signed-in browser profile via storage.sync (browser-managed, not sent to the developer).
+
+When the About-account filter is enabled, the extension may call X GraphQL using the user's existing logged-in X session to resolve account origin; results stay in the local cache. No API keys.
+
+Firefox builds check for updates via GitHub Releases / updates.json. Chrome Web Store builds do not use that self-update path.
