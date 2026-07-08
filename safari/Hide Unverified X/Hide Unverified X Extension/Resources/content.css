@@ -44,11 +44,28 @@
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  padding: 0;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  line-height: 1.2;
 }
 
-.hux-placeholder-button:hover {
+.hux-placeholder-button:hover:not(:disabled) {
   text-decoration: underline;
+}
+
+.hux-placeholder-button:focus {
+  outline: none;
+}
+
+.hux-placeholder-button:focus-visible {
+  outline: 2px solid rgb(29, 155, 240);
+  outline-offset: 2px;
+}
+
+.hux-placeholder-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 .hux-placeholder-button-secondary {

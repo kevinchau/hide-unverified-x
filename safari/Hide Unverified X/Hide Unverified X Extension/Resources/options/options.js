@@ -1,7 +1,14 @@
+const settingsSchema = globalThis.HUXSettings;
+if (!settingsSchema) {
+  throw new Error("HUXSettings missing");
+}
+
 const storage = globalThis.chrome?.storage?.sync ?? globalThis.browser?.storage?.sync;
 
 const retweetAuthorSelect = document.getElementById("retweetAuthor");
 const quoteAuthorSelect = document.getElementById("quoteAuthor");
+const retweetStatus = document.getElementById("retweetStatus");
+const quoteStatus = document.getElementById("quoteStatus");
 const whitelistTextarea = document.getElementById("whitelist");
 const saveWhitelistButton = document.getElementById("saveWhitelist");
 const whitelistFollowingInput = document.getElementById("whitelistFollowing");
@@ -18,25 +25,20 @@ const saveCountryButton = document.getElementById("saveCountry");
 const useSuggestedBlocklistButton = document.getElementById("useSuggestedBlocklist");
 const countryStatus = document.getElementById("countryStatus");
 
+const AUTOSAVE_DEBOUNCE_MS = 400;
+
 const SUGGESTED_SPAM_BLOCKLIST =
   globalThis.HUXCountry?.SUGGESTED_SPAM_BLOCKLIST ?? ["southasia", "africa"];
 
+let whitelistAutosaveTimer = null;
+let countryAutosaveTimer = null;
+
 function normalizeWhitelist(text) {
-  return [
-    ...new Set(
-      text
-        .split(/\r?\n/)
-        .map((line) => line.trim().replace(/^@/, "").toLowerCase())
-        .filter(Boolean)
-    ),
-  ];
+  return settingsSchema.normalizeWhitelist(String(text).split(/\r?\n/));
 }
 
 function normalizeCountryList(text) {
-  return text
-    .split(/[\n,]/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  return settingsSchema.normalizeCountryList(String(text));
 }
 
 function formatWhitelist(handles) {
@@ -48,6 +50,10 @@ function formatCountryList(entries) {
 }
 
 function setStatus(element, message) {
+  if (!element) {
+    return;
+  }
+
   element.textContent = message;
   if (!message) {
     return;
@@ -70,23 +76,30 @@ function saveSelectSetting(key, value, statusElement, message) {
   });
 }
 
-function saveWhitelist() {
+function saveWhitelist(options = {}) {
   if (!storage) {
     return;
   }
 
+  const { reformat = true, statusMessage = "Whitelist saved" } = options;
   const whitelist = normalizeWhitelist(whitelistTextarea.value);
   storage.set({ whitelist }, () => {
-    whitelistTextarea.value = formatWhitelist(whitelist);
-    setStatus(saveStatus, "Whitelist saved");
+    if (reformat) {
+      whitelistTextarea.value = formatWhitelist(whitelist);
+    }
+    setStatus(saveStatus, statusMessage);
   });
 }
 
-function saveCountrySettings() {
+function saveCountrySettings(options = {}) {
   if (!storage) {
     return;
   }
 
+  const {
+    reformat = true,
+    statusMessage = "About-account settings saved",
+  } = options;
   const countryList = normalizeCountryList(countryListTextarea.value);
   storage.set(
     {
@@ -96,10 +109,66 @@ function saveCountrySettings() {
       countryUnknown: countryUnknownSelect.value,
     },
     () => {
-      countryListTextarea.value = formatCountryList(countryList);
-      setStatus(countryStatus, "About-account settings saved");
+      if (reformat) {
+        countryListTextarea.value = formatCountryList(countryList);
+      }
+      setStatus(countryStatus, statusMessage);
     }
   );
+}
+
+function clearWhitelistAutosave() {
+  if (whitelistAutosaveTimer !== null) {
+    window.clearTimeout(whitelistAutosaveTimer);
+    whitelistAutosaveTimer = null;
+  }
+}
+
+function clearCountryAutosave() {
+  if (countryAutosaveTimer !== null) {
+    window.clearTimeout(countryAutosaveTimer);
+    countryAutosaveTimer = null;
+  }
+}
+
+function scheduleWhitelistAutosave() {
+  clearWhitelistAutosave();
+  whitelistAutosaveTimer = window.setTimeout(() => {
+    whitelistAutosaveTimer = null;
+    saveWhitelist({ reformat: false, statusMessage: "Whitelist saved" });
+  }, AUTOSAVE_DEBOUNCE_MS);
+}
+
+function scheduleCountryAutosave() {
+  clearCountryAutosave();
+  countryAutosaveTimer = window.setTimeout(() => {
+    countryAutosaveTimer = null;
+    saveCountrySettings({
+      reformat: false,
+      statusMessage: "About-account settings saved",
+    });
+  }, AUTOSAVE_DEBOUNCE_MS);
+}
+
+function flushWhitelistAutosave() {
+  if (whitelistAutosaveTimer === null) {
+    return;
+  }
+
+  clearWhitelistAutosave();
+  saveWhitelist({ reformat: false, statusMessage: "Whitelist saved" });
+}
+
+function flushCountryAutosave() {
+  if (countryAutosaveTimer === null) {
+    return;
+  }
+
+  clearCountryAutosave();
+  saveCountrySettings({
+    reformat: false,
+    statusMessage: "About-account settings saved",
+  });
 }
 
 if (storage) {
@@ -121,7 +190,7 @@ if (storage) {
       quoteAuthorSelect.value =
         result.quoteAuthor === "quoted" ? "quoted" : "quoter";
       whitelistTextarea.value = formatWhitelist(
-        Array.isArray(result.whitelist) ? result.whitelist : []
+        settingsSchema.normalizeWhitelist(result.whitelist)
       );
       whitelistFollowingInput.checked = result.whitelistFollowing === true;
       whitelistFollowedByFollowingInput.checked =
@@ -134,7 +203,7 @@ if (storage) {
           ? result.countryMatchFields
           : "both";
       countryListTextarea.value = formatCountryList(
-        Array.isArray(result.countryList) ? result.countryList : []
+        settingsSchema.normalizeCountryList(result.countryList)
       );
       countryUnknownSelect.value =
         result.countryUnknown === "hide" ? "hide" : "show";
@@ -145,7 +214,7 @@ if (storage) {
     saveSelectSetting(
       "retweetAuthor",
       retweetAuthorSelect.value,
-      saveStatus,
+      retweetStatus,
       "Retweet setting saved"
     );
   });
@@ -154,16 +223,42 @@ if (storage) {
     saveSelectSetting(
       "quoteAuthor",
       quoteAuthorSelect.value,
-      saveStatus,
+      quoteStatus,
       "Quote setting saved"
     );
   });
 
-  countryModeSelect.addEventListener("change", saveCountrySettings);
-  countryMatchFieldsSelect.addEventListener("change", saveCountrySettings);
-  countryUnknownSelect.addEventListener("change", saveCountrySettings);
+  countryModeSelect.addEventListener("change", () => {
+    clearCountryAutosave();
+    saveCountrySettings();
+  });
+  countryMatchFieldsSelect.addEventListener("change", () => {
+    clearCountryAutosave();
+    saveCountrySettings();
+  });
+  countryUnknownSelect.addEventListener("change", () => {
+    clearCountryAutosave();
+    saveCountrySettings();
+  });
+
+  countryListTextarea.addEventListener("input", scheduleCountryAutosave);
+  countryListTextarea.addEventListener("blur", flushCountryAutosave);
+
+  whitelistTextarea.addEventListener("input", scheduleWhitelistAutosave);
+  whitelistTextarea.addEventListener("blur", flushWhitelistAutosave);
 
   useSuggestedBlocklistButton?.addEventListener("click", () => {
+    const existing = countryListTextarea.value.trim();
+    if (existing) {
+      const confirmed = window.confirm(
+        "Replace your current country/region list with the suggested spam blocklist?"
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    clearCountryAutosave();
     countryListTextarea.value = formatCountryList(SUGGESTED_SPAM_BLOCKLIST);
     countryModeSelect.value = "blocklist";
     countryMatchFieldsSelect.value = "both";
@@ -189,6 +284,15 @@ if (storage) {
     );
   });
 
-  saveWhitelistButton.addEventListener("click", saveWhitelist);
-  saveCountryButton.addEventListener("click", saveCountrySettings);
+  saveWhitelistButton.addEventListener("click", () => {
+    clearWhitelistAutosave();
+    saveWhitelist({ reformat: true, statusMessage: "Whitelist saved" });
+  });
+  saveCountryButton.addEventListener("click", () => {
+    clearCountryAutosave();
+    saveCountrySettings({
+      reformat: true,
+      statusMessage: "About-account settings saved",
+    });
+  });
 }

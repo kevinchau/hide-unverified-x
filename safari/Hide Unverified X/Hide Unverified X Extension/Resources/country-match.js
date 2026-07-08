@@ -289,9 +289,21 @@
     return [...expanded];
   }
 
+  function escapeRegExp(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
   function textMatchesTerms(text, terms) {
-    const haystack = text.toLowerCase();
-    return terms.some((term) => haystack.includes(term));
+    if (!text) return false;
+    const haystack = String(text);
+    return terms.some((term) => {
+      if (!term) return false;
+      const pattern = new RegExp(
+        `(^|[^\\p{L}\\p{N}])${escapeRegExp(term)}(?=$|[^\\p{L}\\p{N}])`,
+        "iu"
+      );
+      return pattern.test(haystack);
+    });
   }
 
   function getSearchTexts(entry, fields) {

@@ -12,6 +12,68 @@
 
   let consumerReady = false;
   const messageBuffer = [];
+  const MAX_MESSAGE_BUFFER = 200;
+
+  const HANDLE_RE = /^[A-Za-z0-9_]{1,15}$/;
+  const QUERY_ID_RE = /^[A-Za-z0-9_-]{5,64}$/;
+  const MAX_HANDLES = 500;
+  const MAX_TEXT_LEN = 200;
+
+  function sanitizeHandle(value) {
+    if (typeof value !== "string") {
+      return "";
+    }
+
+    const handle = value.trim().replace(/^@/, "").toLowerCase();
+    return HANDLE_RE.test(handle) ? handle : "";
+  }
+
+  function sanitizeHandles(values) {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    const seen = new Set();
+    const result = [];
+
+    for (const value of values) {
+      if (result.length >= MAX_HANDLES) {
+        break;
+      }
+
+      const handle = sanitizeHandle(value);
+      if (!handle || seen.has(handle)) {
+        continue;
+      }
+
+      seen.add(handle);
+      result.push(handle);
+    }
+
+    return result;
+  }
+
+  function sanitizeText(value) {
+    if (value == null) {
+      return "";
+    }
+
+    const text = String(value).replace(/\s+/g, " ").trim();
+    if (!text) {
+      return "";
+    }
+
+    return text.length > MAX_TEXT_LEN ? text.slice(0, MAX_TEXT_LEN) : text;
+  }
+
+  function sanitizeQueryId(value) {
+    if (typeof value !== "string") {
+      return "";
+    }
+
+    const queryId = value.trim();
+    return QUERY_ID_RE.test(queryId) ? queryId : "";
+  }
 
   function publish(message) {
     const payload = {
@@ -21,6 +83,9 @@
 
     if (!consumerReady) {
       messageBuffer.push(payload);
+      if (messageBuffer.length > MAX_MESSAGE_BUFFER) {
+        messageBuffer.splice(0, messageBuffer.length - MAX_MESSAGE_BUFFER);
+      }
       return;
     }
 
@@ -75,10 +140,13 @@
   function handleAboutAccountPayload(payload, url) {
     const queryMatch = url.match(/\/graphql\/([^/]+)\/AboutAccountQuery/);
     if (queryMatch?.[1]) {
-      publish({
-        type: "hux-about-query-id",
-        queryId: queryMatch[1],
-      });
+      const queryId = sanitizeQueryId(queryMatch[1]);
+      if (queryId) {
+        publish({
+          type: "hux-about-query-id",
+          queryId,
+        });
+      }
     }
 
     const result =
@@ -91,7 +159,7 @@
       return;
     }
 
-    const handle = readHandle(result);
+    const handle = sanitizeHandle(readHandle(result));
     const about = readAboutProfile(result);
     if (!handle || !about) {
       return;
@@ -99,10 +167,10 @@
 
     publish({
       type: "hux-about-account",
-      handle: handle.toLowerCase(),
-      basedIn: about.basedIn,
-      connectedVia: about.connectedVia,
-      accurate: about.accurate,
+      handle,
+      basedIn: sanitizeText(about.basedIn),
+      connectedVia: sanitizeText(about.connectedVia),
+      accurate: about.accurate !== false,
     });
   }
 
@@ -184,13 +252,14 @@
     const found = new Set();
     walkForFollowingUsers(payload, found, new WeakSet());
 
-    if (!found.size) {
+    const handles = sanitizeHandles([...found]);
+    if (!handles.length) {
       return;
     }
 
     publish({
       type: "hux-following-users",
-      handles: [...found],
+      handles,
     });
   }
 
@@ -425,13 +494,14 @@
     const found = new Set();
     walkForFollowedByFollowingUsers(payload, found, new WeakSet());
 
-    if (!found.size) {
+    const handles = sanitizeHandles([...found]);
+    if (!handles.length) {
       return;
     }
 
     publish({
       type: "hux-followed-by-following",
-      handles: [...found],
+      handles,
     });
   }
 
@@ -541,9 +611,32 @@
       return;
     }
 
+    const tweets = [];
+    for (const tweet of found.values()) {
+      const handle = sanitizeHandle(tweet.handle);
+      if (!handle) {
+        continue;
+      }
+
+      const tweetId = sanitizeText(tweet.tweetId);
+      if (!tweetId) {
+        continue;
+      }
+
+      tweets.push({
+        tweetId,
+        handle,
+        following: tweet.following === true,
+      });
+    }
+
+    if (!tweets.length) {
+      return;
+    }
+
     publish({
       type: "hux-tweet-authors",
-      tweets: [...found.values()],
+      tweets,
     });
   }
 

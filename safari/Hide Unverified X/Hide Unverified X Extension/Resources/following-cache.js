@@ -15,6 +15,7 @@
   let persistTimer = null;
   let loadComplete = false;
   let loadStarted = false;
+  let dirty = false;
 
   const localStorage =
     globalThis.chrome?.storage?.local ?? globalThis.browser?.storage?.local;
@@ -24,12 +25,20 @@
       return;
     }
 
+    dirty = true;
+
+    // Do not write until initial load finishes (avoids clobbering disk with partial state).
+    if (!loadComplete) {
+      return;
+    }
+
     if (persistTimer !== null) {
       clearTimeout(persistTimer);
     }
 
     persistTimer = setTimeout(() => {
       persistTimer = null;
+      dirty = false;
       localStorage.set({
         [CACHE_KEY]: [...following],
         [FOLLOWED_BY_CACHE_KEY]: [...followedByFollowing],
@@ -39,6 +48,9 @@
 
   function finishLoad() {
     loadComplete = true;
+    if (dirty) {
+      schedulePersist();
+    }
     onUpdate?.();
   }
 

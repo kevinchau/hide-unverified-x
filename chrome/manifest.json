@@ -37,6 +37,7 @@
       ],
       "js": [
         "country-match.js",
+        "settings-schema.js",
         "about-account.js",
         "following-cache.js",
         "content.js"
@@ -49,7 +50,7 @@
   ],
   "permissions": [
     "storage",
-    "tabs"
+    "activeTab"
   ],
   "background": {
     "service_worker": "background.js"
