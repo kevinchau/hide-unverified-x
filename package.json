@@ -12,7 +12,8 @@
     "build:safari": "bash scripts/build-safari.sh",
     "build:firefox": "bash scripts/build-firefox.sh",
     "build": "npm run prepare:chrome && npm run build:chrome && npm run prepare:safari && npm run prepare:firefox && npm run build:firefox",
-    "sign:firefox": "npm run prepare:firefox && web-ext sign --source-dir dist/sideload/firefox --artifacts-dir dist --channel unlisted --approval-timeout 0"
+    "sign:firefox": "npm run prepare:firefox && web-ext sign --source-dir dist/sideload/firefox --artifacts-dir dist --channel unlisted --approval-timeout 0",
+    "test": "node --test tests/**/*.test.mjs"
   },
   "devDependencies": {
     "web-ext": "^8.9.0"
