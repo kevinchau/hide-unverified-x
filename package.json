@@ -1,6 +1,6 @@
 {
   "name": "hide-unverified-x",
-  "version": "1.7.6",
+  "version": "1.7.7",
   "private": true,
   "description": "Filter X posts by verification badge and About this account metadata.",
   "scripts": {
