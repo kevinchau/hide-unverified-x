@@ -1472,9 +1472,9 @@
     const context = getTweetContext(tweet);
     const primaryHandle = getPrimaryHandle(tweet);
 
-    // Track how often we see this author (cache retention + trust path).
+    // Count distinct posts from this author (cache keeps frequent handles).
     if (primaryHandle) {
-      aboutAccount?.recordEncounter?.(primaryHandle);
+      aboutAccount?.recordEncounter?.(primaryHandle, extractTweetId(tweet));
     }
 
     // 2) Kick About lookups early for country-enabled contexts (viewport

@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.7.14] — 2026-07-17
+
+### Changed
+- **Post encounter counting** — cache frequency counts each distinct status once (not every reprocess); eviction prioritizes high-encounter accounts so people you see often stay in the 10k About cache
+
 ## [1.7.13] — 2026-07-17
 
 ### Fixed

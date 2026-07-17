@@ -90,12 +90,13 @@
     if (!entry) {
       return 0;
     }
-    // Prefer frequent + recently seen accounts when the cache is full.
-    // Trusted / high locationHits get a boost so stable identities stick.
+    // Prefer accounts we see often when the cache is full (10k cap).
+    // Frequency dominates; recency breaks ties; trusted gets a small boost.
     const encounters = entry.encounterCount || 0;
     const seen = entry.lastSeenAt || entry.fetchedAt || 0;
-    const trustBoost = entry.trusted ? 1e12 : (entry.locationHits || 0) * 1e9;
-    return trustBoost + encounters * 1e7 + seen;
+    const trustBoost = entry.trusted ? 1e6 : 0;
+    // encounters * 1e10 so even modest post counts beat pure recency.
+    return trustBoost + encounters * 1e10 + seen;
   }
 
   function pickStats(existing) {
@@ -157,11 +158,12 @@
   }
 
   /**
-   * Count a feed sighting. Frequent handles are retained preferentially when
-   * the cache trims. Repeat sightings with a stable cached location earn trust
-   * so we can skip further About API lookups (country filter still applies).
+   * Count a post from this account. Pass tweetId so the same post is not
+   * counted again on MutationObserver reprocesses. High encounterCount keeps
+   * the handle when the 10k cache trims. Spaced sightings with a stable
+   * cached location earn trust (skip live About API; country filter still runs).
    */
-  function recordEncounter(handle) {
+  function recordEncounter(handle, tweetId) {
     if (!handle) {
       return;
     }
@@ -169,6 +171,10 @@
     const key = handle.toLowerCase();
     const existing = memoryCache.get(key);
     const now = Date.now();
+    const statusId =
+      tweetId != null && String(tweetId).trim() !== ""
+        ? String(tweetId).trim()
+        : "";
 
     if (!existing) {
       memoryCache.set(key, {
@@ -179,33 +185,46 @@
         empty: true,
         encounterCount: 1,
         lastSeenAt: now,
+        lastEncounterTweetId: statusId || "",
         locationHits: 0,
         lastLocationConfirmAt: 0,
         trusted: false,
       });
-    } else {
-      existing.encounterCount = (existing.encounterCount || 0) + 1;
-      existing.lastSeenAt = now;
-
-      // Confirm cached location on spaced sightings (not every rAF reprocess).
-      if (
-        existing.status === "resolved" &&
-        !existing.empty &&
-        (existing.basedIn || existing.connectedVia)
-      ) {
-        const lastConfirm = existing.lastLocationConfirmAt || 0;
-        if (now - lastConfirm >= TRUST_HIT_MIN_GAP_MS) {
-          existing.locationHits = (existing.locationHits || 1) + 1;
-          existing.lastLocationConfirmAt = now;
-          if (existing.locationHits >= TRUST_LOCATION_HITS) {
-            existing.trusted = true;
-          }
-        }
-      }
-
-      memoryCache.set(key, existing);
+      trimMemoryCache();
+      schedulePersist();
+      return;
     }
 
+    existing.lastSeenAt = now;
+
+    // Same post reprocessed (scroll / fingerprint) — do not inflate frequency.
+    if (statusId && existing.lastEncounterTweetId === statusId) {
+      memoryCache.set(key, existing);
+      return;
+    }
+
+    if (statusId) {
+      existing.lastEncounterTweetId = statusId;
+    }
+    existing.encounterCount = (existing.encounterCount || 0) + 1;
+
+    // Confirm cached location on spaced sightings (not every reprocess).
+    if (
+      existing.status === "resolved" &&
+      !existing.empty &&
+      (existing.basedIn || existing.connectedVia)
+    ) {
+      const lastConfirm = existing.lastLocationConfirmAt || 0;
+      if (now - lastConfirm >= TRUST_HIT_MIN_GAP_MS) {
+        existing.locationHits = (existing.locationHits || 1) + 1;
+        existing.lastLocationConfirmAt = now;
+        if (existing.locationHits >= TRUST_LOCATION_HITS) {
+          existing.trusted = true;
+        }
+      }
+    }
+
+    memoryCache.set(key, existing);
     trimMemoryCache();
     schedulePersist();
   }
