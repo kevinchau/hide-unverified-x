@@ -59,6 +59,8 @@
   let pendingFrame = null;
   let hiddenCount = 0;
   let lastPathname = location.pathname;
+  /** @type {WeakSet<Element>|null} Tweets below the focused status on a conversation page. */
+  let conversationReplyTweets = null;
 
   const storage = globalThis.chrome?.storage?.sync ?? globalThis.browser?.storage?.sync;
   const countryMatcher = globalThis.HUXCountry;
@@ -83,10 +85,27 @@
   }
 
   function extractTweetId(tweet) {
-    const statusLink = tweet.querySelector('a[href*="/status/"]');
-    const href = statusLink?.getAttribute("href") ?? "";
-    const match = href.match(/\/status\/(\d+)/);
+    // Prefer the primary status link; skip nested quote tweets / cards.
+    for (const statusLink of tweet.querySelectorAll('a[href*="/status/"]')) {
+      if (isInsideNestedTweet(statusLink, tweet)) {
+        continue;
+      }
+      const href = statusLink.getAttribute("href") ?? "";
+      const match = href.match(/\/status\/(\d+)/);
+      if (match) {
+        return match[1];
+      }
+    }
+    return null;
+  }
+
+  function getStatusIdFromPath(pathname = location.pathname) {
+    const match = pathname.match(/\/status\/(\d+)/);
     return match ? match[1] : null;
+  }
+
+  function isStatusPage() {
+    return getStatusIdFromPath() !== null;
   }
 
   function isInsideNestedTweet(element, tweet) {
@@ -127,7 +146,47 @@
     return null;
   }
 
+  function rebuildConversationReplyCache() {
+    conversationReplyTweets = null;
+    if (!isStatusPage()) {
+      return;
+    }
+
+    const pageStatusId = getStatusIdFromPath();
+    const tweets = [
+      ...document.querySelectorAll(SELECTORS.tweet),
+    ].filter(isTopLevelTweet);
+
+    if (!tweets.length) {
+      return;
+    }
+
+    let focusedIndex = tweets.findIndex(
+      (tweet) => extractTweetId(tweet) === pageStatusId
+    );
+    // Focused tweet not mounted / id parse miss: treat first top-level as focus.
+    if (focusedIndex < 0) {
+      focusedIndex = 0;
+    }
+
+    const replySet = new WeakSet();
+    for (let i = focusedIndex + 1; i < tweets.length; i++) {
+      replySet.add(tweets[i]);
+    }
+    conversationReplyTweets = replySet;
+  }
+
+  function isConversationReply(tweet) {
+    return !!conversationReplyTweets?.has(tweet);
+  }
+
   function isReply(tweet) {
+    // Status/conversation pages: tweets below the focused post are replies
+    // even when X omits the "Replying to" social context banner.
+    if (isConversationReply(tweet)) {
+      return true;
+    }
+
     const socialContext = getSocialContext(tweet);
     if (!socialContext) {
       return false;
@@ -949,6 +1008,10 @@
   }
 
   function processTweets(root = document) {
+    // Rebuild once per pass so isReply can classify conversation descendants
+    // without re-querying the full tweet list for every article.
+    rebuildConversationReplyCache();
+
     root.querySelectorAll(SELECTORS.tweet).forEach((tweet) => {
       if (!isTopLevelTweet(tweet)) {
         return;

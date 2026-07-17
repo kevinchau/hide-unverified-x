@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.7.8] — 2026-07-16
+
+### Fixed
+- **Replies filter on status pages** — conversation threads under a post (`/status/…`) are classified as replies even when X omits the “Replying to” banner; unverified reply spam is filtered again while the focused post and ancestor chain stay unfiltered
+
 ## [1.7.7] — 2026-07-08
 
 Multiagent review fixes (workstreams A–G):
