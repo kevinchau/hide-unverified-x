@@ -340,6 +340,352 @@
     return parts.join(" · ");
   }
 
+  // Longer keys first so "democratic republic of the congo" beats "congo".
+  const LOCATION_NAME_TO_ISO = (() => {
+    const entries = [
+      // Regions (no ISO flag)
+      ["south asia", null],
+      ["sub-saharan africa", null],
+      ["north africa", null],
+      ["africa", null],
+      ["europe", null],
+      ["middle east", null],
+      ["southeast asia", null],
+      ["east asia", null],
+      ["central asia", null],
+      ["latin america", null],
+      ["north america", null],
+      ["caribbean", null],
+      ["oceania", null],
+
+      // Common countries + X about-account spellings
+      ["united states of america", "US"],
+      ["united states", "US"],
+      ["usa", "US"],
+      ["u.s.a.", "US"],
+      ["u.s.", "US"],
+      ["america", "US"],
+      ["united kingdom", "GB"],
+      ["great britain", "GB"],
+      ["england", "GB"],
+      ["scotland", "GB"],
+      ["wales", "GB"],
+      ["northern ireland", "GB"],
+      ["uk", "GB"],
+      ["u.k.", "GB"],
+      ["democratic republic of the congo", "CD"],
+      ["republic of the congo", "CG"],
+      ["cote d'ivoire", "CI"],
+      ["côte d'ivoire", "CI"],
+      ["ivory coast", "CI"],
+      ["são tomé and príncipe", "ST"],
+      ["sao tome and principe", "ST"],
+      ["cabo verde", "CV"],
+      ["cape verde", "CV"],
+      ["guinea-bissau", "GW"],
+      ["guinea bissau", "GW"],
+      ["central african republic", "CF"],
+      ["south africa", "ZA"],
+      ["south sudan", "SS"],
+      ["sri lanka", "LK"],
+      ["hong kong", "HK"],
+      ["macau", "MO"],
+      ["macao", "MO"],
+      ["taiwan", "TW"],
+      ["palestine", "PS"],
+      ["uae", "AE"],
+      ["u.a.e.", "AE"],
+      ["united arab emirates", "AE"],
+      ["saudi arabia", "SA"],
+      ["south korea", "KR"],
+      ["north korea", "KP"],
+      ["korea", "KR"],
+      ["new zealand", "NZ"],
+      ["czech republic", "CZ"],
+      ["czechia", "CZ"],
+      ["bosnia and herzegovina", "BA"],
+      ["trinidad and tobago", "TT"],
+      ["antigua and barbuda", "AG"],
+      ["saint kitts and nevis", "KN"],
+      ["saint vincent and the grenadines", "VC"],
+      ["dominican republic", "DO"],
+      ["el salvador", "SV"],
+      ["costa rica", "CR"],
+      ["puerto rico", "PR"],
+      ["papua new guinea", "PG"],
+      ["solomon islands", "SB"],
+      ["marshall islands", "MH"],
+      ["burkina faso", "BF"],
+      ["equatorial guinea", "GQ"],
+      ["eswatini", "SZ"],
+      ["swaziland", "SZ"],
+
+      ["india", "IN"],
+      ["pakistan", "PK"],
+      ["bangladesh", "BD"],
+      ["nepal", "NP"],
+      ["bhutan", "BT"],
+      ["maldives", "MV"],
+      ["afghanistan", "AF"],
+      ["nigeria", "NG"],
+      ["niger", "NE"],
+      ["ghana", "GH"],
+      ["kenya", "KE"],
+      ["ethiopia", "ET"],
+      ["egypt", "EG"],
+      ["morocco", "MA"],
+      ["algeria", "DZ"],
+      ["tunisia", "TN"],
+      ["senegal", "SN"],
+      ["cameroon", "CM"],
+      ["uganda", "UG"],
+      ["tanzania", "TZ"],
+      ["zimbabwe", "ZW"],
+      ["mozambique", "MZ"],
+      ["angola", "AO"],
+      ["rwanda", "RW"],
+      ["sudan", "SD"],
+      ["somalia", "SO"],
+      ["mali", "ML"],
+      ["chad", "TD"],
+      ["madagascar", "MG"],
+      ["botswana", "BW"],
+      ["namibia", "NA"],
+      ["zambia", "ZM"],
+      ["malawi", "MW"],
+      ["liberia", "LR"],
+      ["sierra leone", "SL"],
+      ["togo", "TG"],
+      ["benin", "BJ"],
+      ["gabon", "GA"],
+      ["guinea", "GN"],
+      ["gambia", "GM"],
+      ["mauritania", "MR"],
+      ["eritrea", "ER"],
+      ["djibouti", "DJ"],
+      ["burundi", "BI"],
+      ["comoros", "KM"],
+      ["lesotho", "LS"],
+      ["libya", "LY"],
+      ["mauritius", "MU"],
+      ["seychelles", "SC"],
+      ["congo", "CG"],
+
+      ["canada", "CA"],
+      ["mexico", "MX"],
+      ["brazil", "BR"],
+      ["argentina", "AR"],
+      ["chile", "CL"],
+      ["colombia", "CO"],
+      ["peru", "PE"],
+      ["venezuela", "VE"],
+      ["ecuador", "EC"],
+      ["bolivia", "BO"],
+      ["paraguay", "PY"],
+      ["uruguay", "UY"],
+      ["panama", "PA"],
+      ["guatemala", "GT"],
+      ["honduras", "HN"],
+      ["nicaragua", "NI"],
+      ["cuba", "CU"],
+      ["jamaica", "JM"],
+      ["haiti", "HT"],
+
+      ["germany", "DE"],
+      ["france", "FR"],
+      ["spain", "ES"],
+      ["italy", "IT"],
+      ["portugal", "PT"],
+      ["netherlands", "NL"],
+      ["belgium", "BE"],
+      ["switzerland", "CH"],
+      ["austria", "AT"],
+      ["sweden", "SE"],
+      ["norway", "NO"],
+      ["denmark", "DK"],
+      ["finland", "FI"],
+      ["ireland", "IE"],
+      ["poland", "PL"],
+      ["romania", "RO"],
+      ["hungary", "HU"],
+      ["greece", "GR"],
+      ["turkey", "TR"],
+      ["türkiye", "TR"],
+      ["turkiye", "TR"],
+      ["ukraine", "UA"],
+      ["russia", "RU"],
+      ["russian federation", "RU"],
+
+      ["china", "CN"],
+      ["japan", "JP"],
+      ["indonesia", "ID"],
+      ["philippines", "PH"],
+      ["vietnam", "VN"],
+      ["thailand", "TH"],
+      ["malaysia", "MY"],
+      ["singapore", "SG"],
+      ["myanmar", "MM"],
+      ["cambodia", "KH"],
+      ["laos", "LA"],
+      ["mongolia", "MN"],
+
+      ["australia", "AU"],
+      ["israel", "IL"],
+      ["iran", "IR"],
+      ["iraq", "IQ"],
+      ["jordan", "JO"],
+      ["lebanon", "LB"],
+      ["syria", "SY"],
+      ["yemen", "YE"],
+      ["oman", "OM"],
+      ["qatar", "QA"],
+      ["kuwait", "KW"],
+      ["bahrain", "BH"],
+
+      ["iceland", "IS"],
+      ["luxembourg", "LU"],
+      ["malta", "MT"],
+      ["cyprus", "CY"],
+      ["croatia", "HR"],
+      ["serbia", "RS"],
+      ["slovenia", "SI"],
+      ["slovakia", "SK"],
+      ["bulgaria", "BG"],
+      ["albania", "AL"],
+      ["north macedonia", "MK"],
+      ["macedonia", "MK"],
+      ["montenegro", "ME"],
+      ["kosovo", "XK"],
+      ["georgia", "GE"],
+      ["armenia", "AM"],
+      ["azerbaijan", "AZ"],
+      ["kazakhstan", "KZ"],
+      ["uzbekistan", "UZ"],
+      ["turkmenistan", "TM"],
+      ["kyrgyzstan", "KG"],
+      ["tajikistan", "TJ"],
+    ];
+
+    entries.sort((a, b) => b[0].length - a[0].length);
+    return entries;
+  })();
+
+  function isoToFlagEmoji(iso) {
+    if (!iso || typeof iso !== "string" || iso.length !== 2) {
+      return "";
+    }
+
+    const upper = iso.toUpperCase();
+    if (!/^[A-Z]{2}$/.test(upper)) {
+      return "";
+    }
+
+    const base = 0x1f1e6;
+    return String.fromCodePoint(
+      base + upper.charCodeAt(0) - 65,
+      base + upper.charCodeAt(1) - 65
+    );
+  }
+
+  function titleCaseLocation(name) {
+    return String(name)
+      .split(/\s+/)
+      .map((word) => {
+        if (!word) {
+          return word;
+        }
+        if (word.includes("'")) {
+          return word
+            .split("'")
+            .map((part) =>
+              part
+                ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+                : part
+            )
+            .join("'");
+        }
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(" ");
+  }
+
+  /**
+   * Parse a free-text about field into a displayable location.
+   * Returns { flag, text, iso } or null.
+   */
+  function resolveLocationText(raw) {
+    if (!raw || typeof raw !== "string") {
+      return null;
+    }
+
+    const cleaned = raw
+      .replace(/\s+app\s+store\s*$/i, "")
+      .replace(/\s+play\s+store\s*$/i, "")
+      .replace(/\s+google\s+play\s*$/i, "")
+      .trim();
+
+    if (!cleaned) {
+      return null;
+    }
+
+    const lower = cleaned.toLowerCase();
+
+    for (const [name, iso] of LOCATION_NAME_TO_ISO) {
+      const pattern = new RegExp(
+        `(^|[^\\p{L}\\p{N}])${escapeRegExp(name)}(?=$|[^\\p{L}\\p{N}])`,
+        "iu"
+      );
+      if (pattern.test(lower)) {
+        const flag = iso ? isoToFlagEmoji(iso) : "";
+        const text = titleCaseLocation(name);
+        return { flag, text, iso: iso || null };
+      }
+    }
+
+    // Unknown string — still show the raw region/country name without a flag.
+    return { flag: "", text: cleaned, iso: null };
+  }
+
+  /**
+   * Compact location badge for a resolved about-account entry.
+   * Prefers basedIn; falls back to connectedVia.
+   * @returns {{ flag: string, text: string, title: string, display: string } | null}
+   */
+  function locationBadgeForAccount(entry) {
+    if (!entry || entry.status !== "resolved" || entry.empty) {
+      return null;
+    }
+
+    const candidates = [];
+    if (entry.basedIn) {
+      candidates.push(entry.basedIn);
+    }
+    if (entry.connectedVia) {
+      candidates.push(entry.connectedVia);
+    }
+
+    for (const candidate of candidates) {
+      const resolved = resolveLocationText(candidate);
+      if (!resolved) {
+        continue;
+      }
+
+      const title = formatAccountLabel(entry);
+      const display = resolved.flag
+        ? `${resolved.flag} ${resolved.text}`
+        : resolved.text;
+
+      return {
+        flag: resolved.flag,
+        text: resolved.text,
+        title: title || display,
+        display,
+      };
+    }
+
+    return null;
+  }
+
   function shouldHideByAccount(entry, terms, mode, fields) {
     if (!entry || entry.status !== "resolved") {
       return null;
@@ -366,9 +712,13 @@
   globalThis.HUXCountry = {
     normalizeTerms,
     formatAccountLabel,
+    locationBadgeForAccount,
+    resolveLocationText,
+    isoToFlagEmoji,
     shouldHideByAccount,
     SUGGESTED_SPAM_BLOCKLIST,
     SOUTH_ASIA_ALIASES,
     AFRICA_ALIASES,
   };
 })();
+

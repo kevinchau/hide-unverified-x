@@ -3,6 +3,10 @@
 
   const MESSAGE_SOURCE = "hide-unverified-x";
   const READY_TYPE = "hux-ready";
+  const FETCH_ABOUT_TYPE = "hux-fetch-about";
+  const BEARER =
+    "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
+  const FALLBACK_ABOUT_QUERY_ID = "zs_jFPFT78rBpXv9Z3U2YQ";
 
   if (window.__huxNetworkHooked) {
     return;
@@ -13,6 +17,8 @@
   let consumerReady = false;
   const messageBuffer = [];
   const MAX_MESSAGE_BUFFER = 200;
+  let aboutQueryId = FALLBACK_ABOUT_QUERY_ID;
+  const aboutFetchInFlight = new Set();
 
   const HANDLE_RE = /^[A-Za-z0-9_]{1,15}$/;
   const QUERY_ID_RE = /^[A-Za-z0-9_-]{5,64}$/;
@@ -102,17 +108,48 @@
     messageBuffer.length = 0;
   }
 
+  function getCsrfToken() {
+    const match = document.cookie.match(/(?:^|;\s*)ct0=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  function setAboutQueryId(nextQueryId) {
+    const queryId = sanitizeQueryId(nextQueryId);
+    if (!queryId || queryId === aboutQueryId) {
+      return;
+    }
+
+    aboutQueryId = queryId;
+  }
+
   window.addEventListener("message", (event) => {
     if (
       event.source !== window ||
       event.origin !== window.location.origin ||
-      event.data?.source !== MESSAGE_SOURCE ||
-      event.data?.type !== READY_TYPE
+      event.data?.source !== MESSAGE_SOURCE
     ) {
       return;
     }
 
-    flushBuffer();
+    if (event.data.type === READY_TYPE) {
+      flushBuffer();
+      return;
+    }
+
+    // Content script asks the page context to fetch About this account so the
+    // request uses the real X session cookies (isolated-world fetch often cannot).
+    if (event.data.type === FETCH_ABOUT_TYPE) {
+      const handle = sanitizeHandle(event.data.handle);
+      if (!handle) {
+        return;
+      }
+
+      if (event.data.queryId) {
+        setAboutQueryId(event.data.queryId);
+      }
+
+      void fetchAboutAccountInPage(handle);
+    }
   });
 
   function readAboutProfile(result) {
@@ -137,11 +174,31 @@
     );
   }
 
+  function publishAboutAccount(handle, about) {
+    publish({
+      type: "hux-about-account",
+      handle,
+      basedIn: sanitizeText(about?.basedIn || ""),
+      connectedVia: sanitizeText(about?.connectedVia || ""),
+      accurate: about?.accurate !== false,
+    });
+  }
+
+  function publishAboutAccountError(handle, extra = {}) {
+    publish({
+      type: "hux-about-account-error",
+      handle,
+      rateLimited: extra.rateLimited === true,
+      status: typeof extra.status === "number" ? extra.status : 0,
+    });
+  }
+
   function handleAboutAccountPayload(payload, url) {
     const queryMatch = url.match(/\/graphql\/([^/]+)\/AboutAccountQuery/);
     if (queryMatch?.[1]) {
       const queryId = sanitizeQueryId(queryMatch[1]);
       if (queryId) {
+        setAboutQueryId(queryId);
         publish({
           type: "hux-about-query-id",
           queryId,
@@ -156,22 +213,68 @@
       null;
 
     if (!result) {
-      return;
+      return false;
     }
 
     const handle = sanitizeHandle(readHandle(result));
-    const about = readAboutProfile(result);
-    if (!handle || !about) {
+    if (!handle) {
+      return false;
+    }
+
+    // Publish even when about_profile is missing so the content script can
+    // mark the account as empty (no location badge) instead of hanging pending.
+    publishAboutAccount(handle, readAboutProfile(result));
+    return true;
+  }
+
+  // Assigned when the fetch hook installs (end of this IIFE).
+  let originalFetch = null;
+
+  async function fetchAboutAccountInPage(handle) {
+    const key = handle.toLowerCase();
+    if (aboutFetchInFlight.has(key)) {
       return;
     }
 
-    publish({
-      type: "hux-about-account",
-      handle,
-      basedIn: sanitizeText(about.basedIn),
-      connectedVia: sanitizeText(about.connectedVia),
-      accurate: about.accurate !== false,
-    });
+    aboutFetchInFlight.add(key);
+
+    try {
+      const variables = { screenName: handle };
+      const url =
+        `https://x.com/i/api/graphql/${aboutQueryId}/AboutAccountQuery?variables=` +
+        encodeURIComponent(JSON.stringify(variables));
+
+      const doFetch = originalFetch || window.fetch.bind(window);
+      const response = await doFetch(url, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          authorization: BEARER,
+          "x-csrf-token": getCsrfToken(),
+          "x-twitter-active-user": "yes",
+          "x-twitter-auth-type": "OAuth2Session",
+          accept: "*/*",
+        },
+      });
+
+      if (!response.ok) {
+        publishAboutAccountError(handle, {
+          status: response.status,
+          rateLimited: response.status === 429,
+        });
+        return;
+      }
+
+      const payload = await response.json();
+      const published = handleAboutAccountPayload(payload, url);
+      if (!published) {
+        publishAboutAccountError(handle);
+      }
+    } catch {
+      publishAboutAccountError(handle);
+    } finally {
+      aboutFetchInFlight.delete(key);
+    }
   }
 
   function readFollowingHandle(user) {
@@ -668,7 +771,7 @@
     handleTweetAuthorsPayload(payload);
   }
 
-  const originalFetch = window.fetch.bind(window);
+  originalFetch = window.fetch.bind(window);
   window.fetch = function huxFetch(input, init) {
     const url = typeof input === "string" ? input : input?.url;
     return originalFetch(input, init).then((response) => {

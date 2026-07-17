@@ -12,6 +12,7 @@ const BOOL_KEYS = [
   "showPlaceholders",
   "countryForYou",
   "countryReplies",
+  "showCountryFlags",
   "badgeBlue",
   "badgeGold",
   "badgeGovernment",
@@ -129,6 +130,7 @@ function saveSettings() {
     replies: boolInputs.replies.checked,
     countryForYou: boolInputs.countryForYou.checked,
     countryReplies: boolInputs.countryReplies.checked,
+    showCountryFlags: boolInputs.showCountryFlags.checked,
     badgeBlue: boolInputs.badgeBlue.checked,
     badgeGold: boolInputs.badgeGold.checked,
     badgeGovernment: boolInputs.badgeGovernment.checked,
@@ -148,6 +150,7 @@ function applySettings(values) {
   boolInputs.replies.checked = values.replies;
   boolInputs.countryForYou.checked = values.countryForYou === true;
   boolInputs.countryReplies.checked = values.countryReplies === true;
+  boolInputs.showCountryFlags.checked = values.showCountryFlags !== false;
   boolInputs.showPlaceholders.checked = values.showPlaceholders;
   boolInputs.badgeBlue.checked = values.badgeBlue !== false;
   boolInputs.badgeGold.checked = values.badgeGold !== false;

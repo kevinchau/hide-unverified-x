@@ -202,3 +202,98 @@ describe("shouldHideByAccount — allowlist mode", () => {
     );
   });
 });
+
+describe("isoToFlagEmoji", () => {
+  it("maps ISO codes to regional indicator flags", () => {
+    assert.equal(HUX().isoToFlagEmoji("IN"), "🇮🇳");
+    assert.equal(HUX().isoToFlagEmoji("ng"), "🇳🇬");
+    assert.equal(HUX().isoToFlagEmoji("US"), "🇺🇸");
+  });
+
+  it("returns empty for invalid codes", () => {
+    assert.equal(HUX().isoToFlagEmoji(""), "");
+    assert.equal(HUX().isoToFlagEmoji("USA"), "");
+    assert.equal(HUX().isoToFlagEmoji(null), "");
+  });
+});
+
+describe("resolveLocationText", () => {
+  it("maps country names to flag + title case text", () => {
+    const result = HUX().resolveLocationText("Nigeria");
+    assert.equal(result.flag, "🇳🇬");
+    assert.equal(result.text, "Nigeria");
+    assert.equal(result.iso, "NG");
+  });
+
+  it("strips App Store suffix", () => {
+    const result = HUX().resolveLocationText("India App Store");
+    assert.equal(result.flag, "🇮🇳");
+    assert.equal(result.text, "India");
+  });
+
+  it("returns region text without a flag", () => {
+    const result = HUX().resolveLocationText("South Asia");
+    assert.equal(result.flag, "");
+    assert.equal(result.text, "South Asia");
+    assert.equal(result.iso, null);
+  });
+
+  it("does not match niger inside Nigeria", () => {
+    const result = HUX().resolveLocationText("Nigeria");
+    assert.equal(result.iso, "NG");
+  });
+
+  it("keeps unknown strings as plain text", () => {
+    const result = HUX().resolveLocationText("Atlantis");
+    assert.equal(result.flag, "");
+    assert.equal(result.text, "Atlantis");
+  });
+});
+
+describe("locationBadgeForAccount", () => {
+  it("prefers basedIn over connectedVia", () => {
+    const badge = HUX().locationBadgeForAccount({
+      status: "resolved",
+      basedIn: "United States",
+      connectedVia: "India App Store",
+    });
+    assert.equal(badge.flag, "🇺🇸");
+    assert.equal(badge.text, "United States");
+    assert.equal(badge.display, "🇺🇸 United States");
+    assert.match(badge.title, /Based in United States/);
+  });
+
+  it("falls back to connectedVia when basedIn is empty", () => {
+    const badge = HUX().locationBadgeForAccount({
+      status: "resolved",
+      basedIn: "",
+      connectedVia: "Ghana App Store",
+    });
+    assert.equal(badge.display, "🇬🇭 Ghana");
+  });
+
+  it("shows region name without flag when only region is known", () => {
+    const badge = HUX().locationBadgeForAccount({
+      status: "resolved",
+      basedIn: "South Asia",
+      connectedVia: "",
+    });
+    assert.equal(badge.flag, "");
+    assert.equal(badge.display, "South Asia");
+  });
+
+  it("returns null for pending/empty/error entries", () => {
+    assert.equal(
+      HUX().locationBadgeForAccount({ status: "pending" }),
+      null
+    );
+    assert.equal(
+      HUX().locationBadgeForAccount({ status: "resolved", empty: true }),
+      null
+    );
+    assert.equal(
+      HUX().locationBadgeForAccount({ status: "error", basedIn: "India" }),
+      null
+    );
+  });
+});

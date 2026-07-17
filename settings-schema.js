@@ -21,6 +21,7 @@
     countryList: [],
     countryUnknown: "show",
     countryMatchFields: "both",
+    showCountryFlags: true,
   };
 
   function normalizeWhitelist(value) {
@@ -126,6 +127,10 @@
         result.countryMatchFields === "connectedVia"
           ? result.countryMatchFields
           : "both",
+      showCountryFlags:
+        typeof result.showCountryFlags === "boolean"
+          ? result.showCountryFlags
+          : DEFAULT_SETTINGS.showCountryFlags,
     };
   }
 

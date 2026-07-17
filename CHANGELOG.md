@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.7.9] — 2026-07-17
+
+### Added
+- **Location badge** — shows flag + country (or region name when no country) to the left of the Grok button on each post, using About this account data; toggle **Show location badge** in the popup (default on). Badges are cache-only (piggyback on country-filter / About-page data) so they do not spam GraphQL
+
+### Fixed
+- **About lookups** — fetch About this account from the page (MAIN) context with real session cookies; empty responses clear pending state; 30‑minute persisted backoff on HTTP 429
+- **Placeholder black-bar glitch** — placeholders live inside the feed cell (removed with virtualization); orphan bars cleaned up so “Show once / Always show” no longer stacks on the next visible tweet
+- **Location badge layout** — pinned in the Grok action cluster with ellipsis / flag-only on narrow widths so long names do not cover Grok
+
 ## [1.7.8] — 2026-07-16
 
 ### Fixed

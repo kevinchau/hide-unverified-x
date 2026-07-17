@@ -13,6 +13,8 @@
   const PLACEHOLDER_FP_ATTR = "data-hux-ph-fp";
   const COUNTED_ATTR = "data-hux-counted";
   const FINGERPRINT_ATTR = "data-hux-fp";
+  const LOCATION_BADGE_ATTR = "data-hux-location-badge";
+  const LOCATION_BADGE_FP_ATTR = "data-hux-loc-fp";
   const MAX_MESSAGE_ARRAY = 500;
   const HANDLE_PATTERN = /^[A-Za-z0-9_]{1,15}$/;
   const QUERY_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
@@ -681,12 +683,22 @@
     return countryMatcher?.normalizeTerms(settings.countryList) ?? [];
   }
 
-  function ensureAboutAccountLookup(handle, context) {
-    if (!handle || !isCountryFilterEnabled(context)) {
+  /**
+   * Only the country filter may enqueue GraphQL About lookups.
+   * Location badges piggyback on that cache (and on About pages you open).
+   * Enqueueing for every feed author was enough to 429 the session and break
+   * X's own "About this account" UI.
+   */
+  function needsAboutAccountLookup(context) {
+    return isCountryFilterEnabled(context);
+  }
+
+  function ensureAboutAccountLookup(handle, context, priority = false) {
+    if (!handle || !needsAboutAccountLookup(context)) {
       return;
     }
 
-    aboutAccount?.enqueue(handle);
+    aboutAccount?.enqueue(handle, priority ? { priority: true } : undefined);
   }
 
   function getAboutEntry(handle) {
@@ -703,7 +715,7 @@
       return false;
     }
 
-    ensureAboutAccountLookup(handle, context);
+    ensureAboutAccountLookup(handle, context, true);
 
     const entry = getAboutEntry(handle);
     // Fail open on lookup errors — do not hide when about-account fetch failed.
@@ -733,7 +745,25 @@
     return tweet.closest(SELECTORS.feedCell) ?? tweet;
   }
 
+  function getFeedCell(tweet) {
+    return tweet.closest(SELECTORS.feedCell);
+  }
+
+  /**
+   * Placeholder may live:
+   *  - as first child of the feed cell (preferred — dies with virtualization)
+   *  - as previous sibling of the cell/tweet (legacy)
+   */
   function getPlaceholder(tweet) {
+    const cell = getFeedCell(tweet);
+    if (cell) {
+      for (const child of cell.children) {
+        if (child.hasAttribute?.(PLACEHOLDER_ATTR)) {
+          return child;
+        }
+      }
+    }
+
     const target = getHideTarget(tweet);
     const previous = target.previousElementSibling;
     if (previous?.hasAttribute(PLACEHOLDER_ATTR)) {
@@ -745,6 +775,74 @@
 
   function removePlaceholder(tweet) {
     getPlaceholder(tweet)?.remove();
+  }
+
+  /**
+   * X recycles feed cells. Placeholders that sat *outside* a cell become
+   * orphans and glue onto the next tweet (black bar + Show once).
+   */
+  function cleanupOrphanPlaceholders(root = document) {
+    root.querySelectorAll(`[${PLACEHOLDER_ATTR}]`).forEach((placeholder) => {
+      const parent = placeholder.parentElement;
+      if (!parent) {
+        placeholder.remove();
+        return;
+      }
+
+      // Preferred: inside a feed cell that still has a (hidden) tweet.
+      if (parent.matches?.(SELECTORS.feedCell)) {
+        const tweet = parent.querySelector(SELECTORS.tweet);
+        if (!tweet) {
+          placeholder.remove();
+          return;
+        }
+        // Cell has a visible tweet — placeholder should not remain.
+        if (
+          tweet.getAttribute(PROCESSED_ATTR) === "visible" ||
+          tweet.getAttribute(PROCESSED_ATTR) === "dimmed" ||
+          (tweet.getAttribute(HIDDEN_ATTR) !== "true" &&
+            parent.getAttribute(HIDDEN_ATTR) !== "true")
+        ) {
+          // Only strip if the tweet is not currently supposed to be hidden.
+          if (tweet.getAttribute(PROCESSED_ATTR) !== "hidden") {
+            placeholder.remove();
+          }
+        }
+        return;
+      }
+
+      // Legacy: previous sibling of a feed cell / tweet.
+      const next = placeholder.nextElementSibling;
+      if (!next) {
+        placeholder.remove();
+        return;
+      }
+
+      const nextTweet =
+        next.matches?.(SELECTORS.tweet)
+          ? next
+          : next.querySelector?.(SELECTORS.tweet);
+
+      if (!nextTweet) {
+        placeholder.remove();
+        return;
+      }
+
+      // Orphan if the following tweet is visible/dimmed or not hidden.
+      if (nextTweet.getAttribute(PROCESSED_ATTR) !== "hidden") {
+        placeholder.remove();
+        return;
+      }
+
+      // Still attached to a hidden tweet — keep only if that tweet is hidden.
+      const nextCell = nextTweet.closest(SELECTORS.feedCell) ?? nextTweet;
+      if (
+        nextTweet.getAttribute(HIDDEN_ATTR) !== "true" &&
+        nextCell.getAttribute(HIDDEN_ATTR) !== "true"
+      ) {
+        placeholder.remove();
+      }
+    });
   }
 
   function syncHiddenCount() {
@@ -781,6 +879,12 @@
     tweet.setAttribute(PROCESSED_ATTR, "visible");
     tweet.setAttribute(CONTEXT_ATTR, context);
     removePlaceholder(tweet);
+    // Legacy orphans can sit as previousSibling of this cell.
+    const cell = getFeedCell(tweet);
+    const prev = (cell ?? tweet).previousElementSibling;
+    if (prev?.hasAttribute(PLACEHOLDER_ATTR)) {
+      prev.remove();
+    }
     markHiddenCounted(tweet, false);
   }
 
@@ -810,13 +914,27 @@
 
   function buildPlaceholderLabel(handle, reason, accountText) {
     if (reason === "country" && accountText) {
-      return `Post from @${handle} hidden (${accountText})`;
+      const badge = countryMatcher?.locationBadgeForAccount(
+        getAboutEntry(handle)
+      );
+      const loc = badge?.display || accountText;
+      return handle
+        ? `Post from @${handle} hidden · ${loc}`
+        : `Post hidden · ${loc}`;
     }
 
     if (reason === "country") {
       return handle
         ? `Post from @${handle} hidden (about account)`
         : "Post hidden (about account)";
+    }
+
+    // Unverified hide: still surface location when we already know it.
+    const badge = countryMatcher?.locationBadgeForAccount(
+      getAboutEntry(handle)
+    );
+    if (badge?.display && handle) {
+      return `Post from @${handle} hidden · ${badge.display}`;
     }
 
     return handle ? `Post from @${handle} hidden` : "Unverified post hidden";
@@ -892,15 +1010,37 @@
     actions.append(showOnceButton, alwaysShowButton);
     placeholder.append(label, actions);
 
-    const target = getHideTarget(tweet);
-    target.parentNode?.insertBefore(placeholder, target);
+    // Prefer inside the feed cell so X virtualization removes placeholder +
+    // tweet together. Hiding only the article keeps the cell (and bar) visible.
+    const cell = getFeedCell(tweet);
+    if (cell) {
+      cell.insertBefore(placeholder, cell.firstChild);
+    } else {
+      const target = getHideTarget(tweet);
+      target.parentNode?.insertBefore(placeholder, target);
+    }
     return placeholder;
   }
 
   function applyHiddenState(tweet, context, handle, reason, accountText) {
+    const cell = getFeedCell(tweet);
     const target = getHideTarget(tweet);
 
-    target.setAttribute(HIDDEN_ATTR, "true");
+    // Never leave a location badge on a post we're removing from the feed —
+    // it can attach to the wrong header row and smash into the placeholder.
+    removeLocationBadge(tweet);
+
+    // Hide the tweet article; keep the feed cell visible so an in-cell
+    // placeholder can render. Fall back to hiding the whole target when there
+    // is no cell wrapper.
+    if (cell) {
+      cell.removeAttribute(HIDDEN_ATTR);
+      tweet.setAttribute(HIDDEN_ATTR, "true");
+    } else {
+      target.setAttribute(HIDDEN_ATTR, "true");
+      tweet.setAttribute(HIDDEN_ATTR, "true");
+    }
+
     tweet.removeAttribute(DIMMED_ATTR);
     tweet.setAttribute(PROCESSED_ATTR, "hidden");
     tweet.setAttribute(CONTEXT_ATTR, context);
@@ -957,9 +1097,9 @@
     return null;
   }
 
-  function buildTweetFingerprint(decision, context) {
+  function buildTweetFingerprint(decision, context, locationKey = "") {
     if (!decision) {
-      return `visible|${context}|${settings.displayMode}`;
+      return `visible|${context}|${settings.displayMode}|loc:${locationKey}`;
     }
 
     return [
@@ -969,7 +1109,231 @@
       decision.reason || "",
       decision.handle || "",
       decision.accountText || "",
+      `loc:${locationKey}`,
     ].join("|");
+  }
+
+  function getPrimaryHandle(tweet) {
+    return extractHandle(getPrimaryUserName(tweet));
+  }
+
+  function getLocationBadgeInfo(handle) {
+    if (!settings.showCountryFlags || !handle) {
+      return null;
+    }
+
+    const entry = getAboutEntry(handle);
+    return countryMatcher?.locationBadgeForAccount(entry) ?? null;
+  }
+
+  function locationFingerprintKey(handle) {
+    if (!settings.showCountryFlags) {
+      return "off";
+    }
+
+    if (!handle) {
+      return "none";
+    }
+
+    const entry = getAboutEntry(handle);
+    if (!entry) {
+      return "miss";
+    }
+
+    if (entry.status === "pending") {
+      return "pending";
+    }
+
+    if (entry.status === "error") {
+      return "error";
+    }
+
+    const badge = countryMatcher?.locationBadgeForAccount(entry);
+    return badge?.display || "empty";
+  }
+
+  function isPrimaryTweetNode(el, tweet) {
+    return el && !isInsideNestedTweet(el, tweet);
+  }
+
+  /**
+   * Resolve mount point left of Grok (or ···). Returns { parent, before }.
+   */
+  function findLocationBadgeMount(tweet) {
+    // 1) Grok actions button (aria-label is typically "Grok actions").
+    for (const el of tweet.querySelectorAll(
+      'button, a[role="button"], div[role="button"], [aria-label]'
+    )) {
+      if (!isPrimaryTweetNode(el, tweet)) {
+        continue;
+      }
+
+      const label = (el.getAttribute("aria-label") || "").toLowerCase();
+      const testId = (el.getAttribute("data-testid") || "").toLowerCase();
+      if (label.includes("grok") || testId.includes("grok")) {
+        const target =
+          el.closest('button, a[role="button"], div[role="button"]') || el;
+        if (target.parentElement) {
+          return { parent: target.parentElement, before: target };
+        }
+      }
+    }
+
+    // 2) ··· caret / more menu in the same header cluster.
+    for (const el of tweet.querySelectorAll(
+      '[data-testid="caret"], button[aria-haspopup="menu"]'
+    )) {
+      if (!isPrimaryTweetNode(el, tweet)) {
+        continue;
+      }
+
+      const label = (el.getAttribute("aria-label") || "").toLowerCase();
+      const testId = el.getAttribute("data-testid") || "";
+      if (
+        testId === "caret" ||
+        label.includes("more") ||
+        label.includes("post options") ||
+        label.includes("status options")
+      ) {
+        if (el.parentElement) {
+          return { parent: el.parentElement, before: el };
+        }
+      }
+    }
+
+    // 3) Header row that contains User-Name and at least one action control.
+    const userName = getPrimaryUserName(tweet);
+    if (userName) {
+      let row = userName.parentElement;
+      for (let depth = 0; depth < 8 && row && row !== tweet; depth += 1) {
+        if (row.childElementCount >= 2) {
+          const actions = [...row.children].filter((child) => {
+            if (child.contains(userName)) {
+              return false;
+            }
+            return Boolean(
+              child.querySelector?.(
+                'button, [role="button"], [data-testid="caret"], [aria-label*="Grok"], [aria-label*="grok"]'
+              ) ||
+                child.matches?.(
+                  'button, [role="button"], [data-testid="caret"]'
+                )
+            );
+          });
+
+          if (actions.length) {
+            const before = actions[0];
+            return { parent: row, before };
+          }
+        }
+        row = row.parentElement;
+      }
+    }
+
+    return null;
+  }
+
+  function removeLocationBadge(tweet) {
+    tweet.querySelectorAll(`[${LOCATION_BADGE_ATTR}]`).forEach((node) => {
+      if (!isInsideNestedTweet(node, tweet)) {
+        node.remove();
+      }
+    });
+  }
+
+  function isTweetHidden(tweet) {
+    if (tweet.getAttribute(PROCESSED_ATTR) === "hidden") {
+      return true;
+    }
+
+    const target = getHideTarget(tweet);
+    return target?.getAttribute(HIDDEN_ATTR) === "true";
+  }
+
+  function syncLocationBadge(tweet, handle) {
+    if (!settings.showCountryFlags) {
+      removeLocationBadge(tweet);
+      return;
+    }
+
+    // Hidden posts use the placeholder for location context — do not inject
+    // into a display:none header (causes layout glitches with the black bar).
+    if (isTweetHidden(tweet)) {
+      removeLocationBadge(tweet);
+      return;
+    }
+
+    const badge = getLocationBadgeInfo(handle);
+    if (!badge) {
+      removeLocationBadge(tweet);
+      return;
+    }
+
+    const mount = findLocationBadgeMount(tweet);
+    if (!mount?.parent || !mount.before) {
+      removeLocationBadge(tweet);
+      return;
+    }
+
+    // Refuse to mount into something that isn't part of this tweet article.
+    if (!tweet.contains(mount.parent)) {
+      removeLocationBadge(tweet);
+      return;
+    }
+
+    let el = null;
+    for (const node of tweet.querySelectorAll(`[${LOCATION_BADGE_ATTR}]`)) {
+      if (!isInsideNestedTweet(node, tweet)) {
+        el = node;
+        break;
+      }
+    }
+
+    if (!el) {
+      el = document.createElement("span");
+      el.setAttribute(LOCATION_BADGE_ATTR, "true");
+      el.className = "hux-location-badge";
+    }
+
+    const fp = badge.display;
+    if (el.getAttribute(LOCATION_BADGE_FP_ATTR) !== fp) {
+      el.setAttribute(LOCATION_BADGE_FP_ATTR, fp);
+      el.replaceChildren();
+
+      // Split flag + text so the country name can ellipsis without clipping
+      // the emoji, and narrow layouts can hide text (flag-only).
+      if (badge.flag) {
+        const flagEl = document.createElement("span");
+        flagEl.className = "hux-location-badge-flag";
+        flagEl.textContent = badge.flag;
+        flagEl.setAttribute("aria-hidden", "true");
+        el.append(flagEl);
+      }
+
+      if (badge.text) {
+        const textEl = document.createElement("span");
+        textEl.className = "hux-location-badge-text";
+        textEl.textContent = badge.text;
+        el.append(textEl);
+      }
+
+      el.title = badge.title || badge.display;
+      el.setAttribute("aria-label", badge.title || badge.display);
+    }
+
+    // Keep immediately left of Grok / action cluster (right side of header).
+    // That cluster is typically flex-end; long User-Name truncates on the left.
+    if (el.parentElement !== mount.parent || el.nextElementSibling !== mount.before) {
+      mount.parent.insertBefore(el, mount.before);
+    }
+
+    // Nudge the action cluster not to shrink under a long name.
+    if (mount.parent && mount.parent instanceof HTMLElement) {
+      if (!mount.parent.dataset.huxLocCluster) {
+        mount.parent.dataset.huxLocCluster = "1";
+        mount.parent.style.flexShrink = "0";
+      }
+    }
   }
 
   function isTopLevelTweet(tweet) {
@@ -978,11 +1342,28 @@
 
   function processTweet(tweet) {
     const context = getTweetContext(tweet);
+    const primaryHandle = getPrimaryHandle(tweet);
     const decision = getFilterDecision(tweet);
-    const fingerprint = buildTweetFingerprint(decision, context);
 
-    // D6: skip DOM work when filter decision and settings fingerprint are unchanged.
+    // Location badges never enqueue by themselves — they only render when
+    // about data is already cached (country filter / About page / prior visit).
+    const willHide = Boolean(decision) && settings.displayMode === "hide";
+
+    const locationKey = willHide
+      ? "hidden"
+      : locationFingerprintKey(primaryHandle);
+    const fingerprint = buildTweetFingerprint(decision, context, locationKey);
+
+    // D6: skip filter DOM work when decision/settings fingerprint is unchanged.
+    // Still re-sync the location badge — X often re-renders header actions.
     if (tweet.getAttribute(FINGERPRINT_ATTR) === fingerprint) {
+      if (!willHide) {
+        // Visible tweets must never keep a leftover placeholder bar.
+        removePlaceholder(tweet);
+        syncLocationBadge(tweet, primaryHandle);
+      } else {
+        removeLocationBadge(tweet);
+      }
       return;
     }
 
@@ -990,11 +1371,13 @@
 
     if (!decision) {
       clearFilteredState(tweet, context);
+      syncLocationBadge(tweet, primaryHandle);
       return;
     }
 
     if (settings.displayMode === "dim") {
       applyDimmedState(tweet, context);
+      syncLocationBadge(tweet, primaryHandle);
       return;
     }
 
@@ -1011,6 +1394,7 @@
     // Rebuild once per pass so isReply can classify conversation descendants
     // without re-querying the full tweet list for every article.
     rebuildConversationReplyCache();
+    cleanupOrphanPlaceholders(root);
 
     root.querySelectorAll(SELECTORS.tweet).forEach((tweet) => {
       if (!isTopLevelTweet(tweet)) {
@@ -1019,6 +1403,9 @@
 
       processTweet(tweet);
     });
+
+    // Second pass: virtualization may leave bars after tweets update.
+    cleanupOrphanPlaceholders(root);
     recomputeHiddenCount();
   }
 
@@ -1238,6 +1625,18 @@
         sanitizeAboutText(event.data.connectedVia),
         event.data.accurate !== false
       );
+      return;
+    }
+
+    if (type === "hux-about-account-error") {
+      const handle = sanitizeHandle(event.data.handle);
+      if (!handle) {
+        return;
+      }
+
+      aboutAccount?.markErrorFromInterceptor?.(handle, {
+        rateLimited: event.data.rateLimited === true,
+      });
       return;
     }
 

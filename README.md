@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kevinchau/hide-unverified-x/releases/latest"><img src="https://img.shields.io/badge/version-1.7.8-1d9bf0.svg" alt="Version 1.7.8" /></a>
+  <a href="https://github.com/kevinchau/hide-unverified-x/releases/latest"><img src="https://img.shields.io/badge/version-1.7.9-1d9bf0.svg" alt="Version 1.7.9" /></a>
   <img src="https://img.shields.io/badge/Chrome-supported-4285F4?logo=googlechrome&logoColor=white" alt="Chrome" />
   <img src="https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white" alt="Firefox" />
   <img src="https://img.shields.io/badge/Safari-supported-006CFF?logo=safari&logoColor=white" alt="Safari" />
@@ -54,11 +54,11 @@ Hide or dim posts on [X](https://x.com) that lack the verification badges you ca
 
 ### Firefox
 
-Click **Install for Firefox** above, or [download the signed add-on from the latest release](https://github.com/kevinchau/hide-unverified-x/releases/latest) (`hide-unverified-x-1.7.8.xpi`).
+Click **Install for Firefox** above, or [download the signed add-on from the latest release](https://github.com/kevinchau/hide-unverified-x/releases/latest) (`hide-unverified-x-1.7.9.xpi`).
 
 1. Open the link in **Firefox**.
 2. Confirm the install prompt if one appears.
-3. If Firefox only downloads the file: open **Add-ons and themes** → gear icon → **Install Add-on From File…** → select `hide-unverified-x-1.7.8.xpi`.
+3. If Firefox only downloads the file: open **Add-ons and themes** → gear icon → **Install Add-on From File…** → select `hide-unverified-x-1.7.9.xpi`.
 
 ### Chrome
 
@@ -124,6 +124,7 @@ The popup shows how many posts are filtered on the current tab.
 | **Verification badges** | Hide or dim posts without blue, gold, or silver checks — each toggleable |
 | **Per-feed control** | Separate settings for **For you**, **Following**, and **Replies** |
 | **About-account filter** | Block or allow posts by account region or App Store (e.g. `India App Store`) |
+| **Location badge** | Flag + country/region left of the Grok button (from About this account data) |
 | **Whitelist** | Always show specific handles, accounts you follow, or people followed by people you follow |
 | **Softer hiding** | Optional placeholder cards with **Show once** and **Always show** |
 | **Hide or dim** | Remove posts entirely, or fade them out so you can still scroll past |
@@ -138,6 +139,7 @@ Click the extension icon on X for quick toggles:
 | --- | --- |
 | **For you / Following / Replies** | Turn filtering on or off per feed |
 | **About-account filter** | Filter For you and Replies using account origin data |
+| **Show location badge** | Flag + country (or region) left of the Grok button |
 | **Blue / Gold / Silver check** | Choose which badge types count as verified |
 | **Hide / Dim** | Remove posts or fade them |
 | **Placeholder cards** | Show a slim bar to reveal hidden posts |
@@ -182,6 +184,8 @@ Uses the same information as X’s **About this account** page (`Account based i
 | **Connected via** | `India App Store`, `Nigeria App Store` |
 
 The extension learns account origins as you browse — from About pages you visit and from feed lookups using your existing X session. Results are cached on your device. Accounts with unknown or still-loading data are shown by default.
+
+When **Show location badge** is on (default), posts show a compact **flag + country** label (or the region name alone when X only reports a region) to the left of the Grok button in the tweet header.
 
 **Suggested spam blocklist** (one click in Advanced settings):
 
