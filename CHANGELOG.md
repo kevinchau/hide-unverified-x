@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-07-17
+
+### Performance
+- **Timeline payload walks gated** — the page interceptor no longer parses or walks large GraphQL timeline responses unless a following/social-proof whitelist feature is enabled (both off by default), eliminating that work for default users
+- **Followed-by-following detection is now single-pass** — replaced an O(n²) per-node subtree rescan with an O(n) proof-node pass
+- **Lighter MutationObserver** — stopped observing `style`/`class` document-wide and stopped running `getComputedStyle` on every mutation; theme changes are tracked by a scoped observer on `<html>`/`<body>`
+- **Per-pass caching** — active home tab, country terms, and tweet context are computed once per processing pass instead of per tweet; country-match regexes are precompiled once
+
 ## [1.7.14] — 2026-07-17
 
 ### Changed

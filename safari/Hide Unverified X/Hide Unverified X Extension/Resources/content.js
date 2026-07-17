@@ -3,6 +3,7 @@
 
   const MESSAGE_SOURCE = "hide-unverified-x";
   const READY_TYPE = "hux-ready";
+  const CONFIG_TYPE = "hux-config";
 
   const PROCESSED_ATTR = "data-hux-processed";
   const HIDDEN_ATTR = "data-hux-hidden";
@@ -58,6 +59,8 @@
 
   let settings = { ...DEFAULT_SETTINGS };
   let observer = null;
+  let themeObserver = null;
+  let themeFrame = null;
   let pendingFrame = null;
   let hiddenCount = 0;
   let lastPathname = location.pathname;
@@ -624,7 +627,28 @@
     return path === "/" || path === "/home" || path.startsWith("/home/");
   }
 
+  // The active home tab is identical for every tweet in a single processing
+  // pass; cache it so we don't re-query the DOM per tweet (twice, via
+  // getTweetContext + getFilterDecision). Invalidated at each processTweets pass.
+  let homeTabCache = { valid: false, value: null };
+
+  function invalidateHomeTabCache() {
+    homeTabCache.valid = false;
+    homeTabCache.value = null;
+  }
+
   function getActiveHomeTab() {
+    if (homeTabCache.valid) {
+      return homeTabCache.value;
+    }
+
+    const value = computeActiveHomeTab();
+    homeTabCache.valid = true;
+    homeTabCache.value = value;
+    return value;
+  }
+
+  function computeActiveHomeTab() {
     if (!isHomeTimeline()) {
       return null;
     }
@@ -712,8 +736,19 @@
     return false;
   }
 
+  // normalizeTerms expands aliases and dedupes — no need to redo it per tweet.
+  // settings.countryList is a fresh array on each settings change, so identity
+  // comparison is a safe cache key.
+  let countryTermsCache = { list: null, terms: [] };
+
   function getCountryTerms() {
-    return countryMatcher?.normalizeTerms(settings.countryList) ?? [];
+    if (countryTermsCache.list === settings.countryList) {
+      return countryTermsCache.terms;
+    }
+
+    const terms = countryMatcher?.normalizeTerms(settings.countryList) ?? [];
+    countryTermsCache = { list: settings.countryList, terms };
+    return terms;
   }
 
   /**
@@ -816,6 +851,11 @@
    * orphans and glue onto the next tweet (black bar + Show once).
    */
   function cleanupOrphanPlaceholders(root = document) {
+    // Fast path: no placeholders exist (e.g. dim mode) — skip the full scan.
+    if (!root.querySelector(SELECTORS.placeholder)) {
+      return;
+    }
+
     root.querySelectorAll(`[${PLACEHOLDER_ATTR}]`).forEach((placeholder) => {
       const parent = placeholder.parentElement;
       if (!parent) {
@@ -1102,12 +1142,11 @@
     markHiddenCounted(tweet, true);
   }
 
-  function getFilterDecision(tweet) {
+  function getFilterDecision(tweet, context = getTweetContext(tweet)) {
     if (tweet.hasAttribute(REVEALED_ATTR)) {
       return null;
     }
 
-    const context = getTweetContext(tweet);
     const authorScope = getAuthorScope(tweet);
     const handle = extractHandle(authorScope);
 
@@ -1483,8 +1522,9 @@
       ensureAboutAccountLookup(primaryHandle, context, true);
     }
 
-    // 3) Filter decision (country, then verification).
-    const decision = getFilterDecision(tweet);
+    // 3) Filter decision (country, then verification). Reuse the context we
+    //    already computed instead of recomputing it inside getFilterDecision.
+    const decision = getFilterDecision(tweet, context);
 
     // 4) Location badge only on posts that stay visible (or dimmed).
     const willHide = Boolean(decision) && settings.displayMode === "hide";
@@ -1531,6 +1571,9 @@
   }
 
   function processTweets(root = document) {
+    // The active home tab is constant across this pass — compute it once.
+    invalidateHomeTabCache();
+
     // Rebuild once per pass so isReply can classify conversation descendants
     // without re-querying the full tweet list for every article.
     rebuildConversationReplyCache();
@@ -1549,6 +1592,10 @@
     // Second pass: virtualization may leave bars after tweets update.
     cleanupOrphanPlaceholders(root);
     recomputeHiddenCount();
+
+    // Don't let a stale tab value leak into later one-off getTweetContext calls
+    // (e.g. a placeholder "Show once" click) after the DOM has moved on.
+    invalidateHomeTabCache();
   }
 
   function scheduleProcess() {
@@ -1558,6 +1605,10 @@
 
     pendingFrame = requestAnimationFrame(() => {
       pendingFrame = null;
+      // Cheap safety net for theme flips X may apply without touching
+      // html/body attributes (the scoped theme observer covers the rest).
+      // Once per coalesced pass — not once per mutation as before.
+      syncPageTheme();
       scanFollowedByFollowingProof();
       processTweets();
     });
@@ -1690,25 +1741,68 @@
       if (settings.whitelistFollowedByFollowing) {
         scheduleScanFollowedByProof();
       }
-
-      // Theme can flip without a full navigation (user toggles appearance).
-      syncPageTheme();
+      // Theme flips are handled by a dedicated, scoped observer (see
+      // startThemeObserver) so we don't run getComputedStyle on every mutation.
     });
 
+    // Only aria-selected (home tab switches) needs doc-wide attribute watching.
+    // Watching style/class subtree-wide woke this callback on X's constant
+    // hover/animation churn for no benefit.
     observer.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["aria-selected", "style", "class"],
+      attributeFilter: ["aria-selected"],
     });
 
+    startThemeObserver();
     syncPageTheme();
     scanFollowedByFollowingProof();
     processTweets();
   }
 
+  function scheduleThemeSync() {
+    if (themeFrame !== null) {
+      return;
+    }
+
+    themeFrame = requestAnimationFrame(() => {
+      themeFrame = null;
+      syncPageTheme();
+    });
+  }
+
+  /**
+   * Theme flips (X appearance toggle) only touch class/style on <html>/<body>,
+   * so watch just those two nodes instead of running getComputedStyle on every
+   * document-wide mutation.
+   */
+  function startThemeObserver() {
+    if (themeObserver) {
+      return;
+    }
+
+    const root = document.documentElement;
+    if (!root) {
+      return;
+    }
+
+    themeObserver = new MutationObserver(scheduleThemeSync);
+    themeObserver.observe(root, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
+    if (document.body) {
+      themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+      });
+    }
+  }
+
   function applySettings(nextSettings) {
     settings = normalizeStoredSettings(nextSettings);
+    sendInterceptorConfig();
     startObserver();
     syncPageTheme();
     scanFollowedByFollowingProof();
@@ -1942,6 +2036,23 @@
     );
   }
 
+  /**
+   * Tell the MAIN-world interceptor which following/social-proof features are
+   * enabled. When both are off (default), the interceptor skips parsing and
+   * walking large timeline payloads entirely.
+   */
+  function sendInterceptorConfig() {
+    window.postMessage(
+      {
+        source: MESSAGE_SOURCE,
+        type: CONFIG_TYPE,
+        following: settings.whitelistFollowing === true,
+        followedBy: settings.whitelistFollowedByFollowing === true,
+      },
+      window.location.origin
+    );
+  }
+
   if (storage?.onChanged) {
     storage.onChanged.addListener((changes, area) => {
       // Firefox may surface settings under sync or local depending on browser.
@@ -2011,12 +2122,13 @@
   function startPathWatcher() {
     lastPathname = location.pathname;
 
-    // Backup if MAIN-world history hooks miss a navigation.
+    // Backup only if MAIN-world history hooks miss a navigation (they fire
+    // synchronously via hux-location, so this can poll infrequently).
     setInterval(() => {
       if (location.pathname !== lastPathname) {
         handleLocationChange();
       }
-    }, 300);
+    }, 750);
   }
 
   function init() {

@@ -293,16 +293,32 @@
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
+  // Whole-word (Unicode-aware) match used by both term matching and location
+  // resolution. Compiling these regexes is the hot cost, so cache dynamic terms.
+  function buildWordBoundaryRegex(term) {
+    return new RegExp(
+      `(^|[^\\p{L}\\p{N}])${escapeRegExp(term)}(?=$|[^\\p{L}\\p{N}])`,
+      "iu"
+    );
+  }
+
+  const termRegexCache = new Map();
+
+  function termRegex(term) {
+    let pattern = termRegexCache.get(term);
+    if (!pattern) {
+      pattern = buildWordBoundaryRegex(term);
+      termRegexCache.set(term, pattern);
+    }
+    return pattern;
+  }
+
   function textMatchesTerms(text, terms) {
     if (!text) return false;
     const haystack = String(text);
     return terms.some((term) => {
       if (!term) return false;
-      const pattern = new RegExp(
-        `(^|[^\\p{L}\\p{N}])${escapeRegExp(term)}(?=$|[^\\p{L}\\p{N}])`,
-        "iu"
-      );
-      return pattern.test(haystack);
+      return termRegex(term).test(haystack);
     });
   }
 
@@ -567,7 +583,9 @@
     ];
 
     entries.sort((a, b) => b[0].length - a[0].length);
-    return entries;
+    // Precompile the whole-word regex per location name once, instead of
+    // rebuilding ~250 RegExp objects on every resolveLocationText call.
+    return entries.map(([name, iso]) => [name, iso, buildWordBoundaryRegex(name)]);
   })();
 
   function isoToFlagEmoji(iso) {
@@ -630,11 +648,7 @@
 
     const lower = cleaned.toLowerCase();
 
-    for (const [name, iso] of LOCATION_NAME_TO_ISO) {
-      const pattern = new RegExp(
-        `(^|[^\\p{L}\\p{N}])${escapeRegExp(name)}(?=$|[^\\p{L}\\p{N}])`,
-        "iu"
-      );
+    for (const [name, iso, pattern] of LOCATION_NAME_TO_ISO) {
       if (pattern.test(lower)) {
         const flag = iso ? isoToFlagEmoji(iso) : "";
         const text = titleCaseLocation(name);

@@ -3,6 +3,7 @@
 
   const MESSAGE_SOURCE = "hide-unverified-x";
   const READY_TYPE = "hux-ready";
+  const CONFIG_TYPE = "hux-config";
   const FETCH_ABOUT_TYPE = "hux-fetch-about";
   const BEARER =
     "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
@@ -19,6 +20,12 @@
   const MAX_MESSAGE_BUFFER = 200;
   let aboutQueryId = FALLBACK_ABOUT_QUERY_ID;
   const aboutFetchInFlight = new Set();
+
+  // Feature gates pushed from the isolated-world content script (hux-config).
+  // Default off so a default-configured user never pays for the expensive
+  // timeline-payload walks below. AboutAccountQuery handling is never gated.
+  let wantFollowingData = false;
+  let wantFollowedByData = false;
 
   const HANDLE_RE = /^[A-Za-z0-9_]{1,15}$/;
   const QUERY_ID_RE = /^[A-Za-z0-9_-]{5,64}$/;
@@ -133,6 +140,15 @@
 
     if (event.data.type === READY_TYPE) {
       flushBuffer();
+      return;
+    }
+
+    // Content script tells us which following/social-proof features are on so
+    // we can skip walking (and even JSON-parsing) large timeline payloads when
+    // nothing consumes the result.
+    if (event.data.type === CONFIG_TYPE) {
+      wantFollowingData = event.data.following === true;
+      wantFollowedByData = event.data.followedBy === true;
       return;
     }
 
@@ -384,7 +400,9 @@
     return user.relationship?.following === true;
   }
 
-  function walkForFollowingUsers(value, found, visited) {
+  // Single traversal that collects both "accounts you follow" and per-tweet
+  // authors. These were previously two independent full walks of every payload.
+  function walkUsersAndTweets(value, followingSet, tweetMap, visited) {
     if (!value || typeof value !== "object") {
       return;
     }
@@ -397,36 +415,70 @@
 
     if (Array.isArray(value)) {
       for (const item of value) {
-        walkForFollowingUsers(item, found, visited);
+        walkUsersAndTweets(item, followingSet, tweetMap, visited);
       }
       return;
     }
 
     const handle = readFollowingHandle(value);
     if (handle && isFollowingUser(value)) {
-      found.add(handle);
+      followingSet.add(handle);
+    }
+
+    const author = tryExtractTweetAuthor(value);
+    if (author) {
+      tweetMap.set(author.tweetId, author);
     }
 
     for (const child of Object.values(value)) {
       if (child && typeof child === "object") {
-        walkForFollowingUsers(child, found, visited);
+        walkUsersAndTweets(child, followingSet, tweetMap, visited);
       }
     }
   }
 
-  function handleFollowingUsersPayload(payload) {
-    const found = new Set();
-    walkForFollowingUsers(payload, found, new WeakSet());
+  function scanUsersAndTweets(payload) {
+    const followingSet = new Set();
+    const tweetMap = new Map();
+    walkUsersAndTweets(payload, followingSet, tweetMap, new WeakSet());
 
-    const handles = sanitizeHandles([...found]);
-    if (!handles.length) {
+    const handles = sanitizeHandles([...followingSet]);
+    if (handles.length) {
+      publish({
+        type: "hux-following-users",
+        handles,
+      });
+    }
+
+    if (!tweetMap.size) {
       return;
     }
 
-    publish({
-      type: "hux-following-users",
-      handles,
-    });
+    const tweets = [];
+    for (const tweet of tweetMap.values()) {
+      const handle = sanitizeHandle(tweet.handle);
+      if (!handle) {
+        continue;
+      }
+
+      const tweetId = sanitizeText(tweet.tweetId);
+      if (!tweetId) {
+        continue;
+      }
+
+      tweets.push({
+        tweetId,
+        handle,
+        following: tweet.following === true,
+      });
+    }
+
+    if (tweets.length) {
+      publish({
+        type: "hux-tweet-authors",
+        tweets,
+      });
+    }
   }
 
   const MAX_SOCIAL_PROOF_DEPTH = 8;
@@ -453,95 +505,42 @@
     return /social|proof|facepile|context/i.test(String(key));
   }
 
-  function typeIndicatesFollowedByYouFollow(type) {
-    const normalized = String(type).toLowerCase();
-    return (
-      normalized.includes("friendsfollowing") ||
-      normalized.includes("followedbyfriend") ||
-      normalized.includes("trustedfriend") ||
-      normalized.includes("socialproof")
-    );
-  }
-
-  function objectIndicatesFollowedByYouFollow(obj, visited, depth) {
-    if (!obj || depth > MAX_SOCIAL_PROOF_DEPTH) {
-      return false;
-    }
-
-    if (typeof obj === "string") {
-      return textIndicatesFollowedByYouFollow(obj);
-    }
-
-    if (typeof obj !== "object") {
-      return false;
-    }
-
-    if (visited.has(obj)) {
-      return false;
-    }
-
-    visited.add(obj);
-
-    if (Array.isArray(obj)) {
-      return obj.some((item) =>
-        objectIndicatesFollowedByYouFollow(item, visited, depth + 1)
-      );
-    }
-
-    for (const [key, value] of Object.entries(obj)) {
-      if (
-        /social|proof|context/i.test(key) &&
-        typeIndicatesFollowedByYouFollow(value?.type || value?.__typename || key)
-      ) {
-        return true;
-      }
-
-      if (objectIndicatesFollowedByYouFollow(value, visited, depth + 1)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  function subtreeHasFollowedByYouFollowProof(value, visited, depth) {
-    if (!value || depth > MAX_SOCIAL_PROOF_DEPTH) {
-      return false;
-    }
-
-    if (typeof value === "string") {
-      return textIndicatesFollowedByYouFollow(value);
-    }
-
-    if (typeof value !== "object") {
+  // Mark every node whose subtree contains "followed by … you follow" proof
+  // text, in a single O(n) pass, and report whether the payload has any proof
+  // at all. Replaces a per-node full-subtree rescan that made followed-by-
+  // following extraction O(n²) on large timeline payloads.
+  function collectProofNodes(value, visited, proofNodes) {
+    if (!value || typeof value !== "object") {
       return false;
     }
 
     if (visited.has(value)) {
-      return false;
+      return proofNodes.has(value);
     }
 
     visited.add(value);
 
-    if (Array.isArray(value)) {
-      return value.some((item) =>
-        subtreeHasFollowedByYouFollowProof(item, visited, depth + 1)
-      );
-    }
-
-    for (const child of Object.values(value)) {
-      if (typeof child === "string" && textIndicatesFollowedByYouFollow(child)) {
-        return true;
-      }
-
-      if (child && typeof child === "object") {
-        if (subtreeHasFollowedByYouFollowProof(child, visited, depth + 1)) {
-          return true;
+    let hasProof = false;
+    const children = Array.isArray(value) ? value : Object.values(value);
+    for (const child of children) {
+      if (typeof child === "string") {
+        if (textIndicatesFollowedByYouFollow(child)) {
+          hasProof = true;
+        }
+      } else if (child && typeof child === "object") {
+        // Do not short-circuit: every descendant still needs its proof status
+        // recorded so the extraction pass can attribute a subject to each.
+        if (collectProofNodes(child, visited, proofNodes)) {
+          hasProof = true;
         }
       }
     }
 
-    return false;
+    if (hasProof) {
+      proofNodes.add(value);
+    }
+
+    return hasProof;
   }
 
   function tryExtractPrimarySubjectHandle(value, visited, depth, inSocialBranch) {
@@ -619,18 +618,17 @@
     return "";
   }
 
-  function walkForFollowedByFollowingUsers(value, found, visited) {
-    if (!value || typeof value !== "object") {
-      return;
-    }
-
-    if (visited.has(value)) {
+  // For each node whose subtree carries proof text, attribute it to the nearest
+  // tweet/user subject (same extraction as before, now driven by the precomputed
+  // proof-node set instead of re-scanning each node's subtree).
+  function extractFollowedBySubjects(value, visited, proofNodes, found) {
+    if (!value || typeof value !== "object" || visited.has(value)) {
       return;
     }
 
     visited.add(value);
 
-    if (subtreeHasFollowedByYouFollowProof(value, new WeakSet(), 0)) {
+    if (proofNodes.has(value)) {
       const handle = tryExtractPrimarySubjectHandle(
         value,
         new WeakSet(),
@@ -642,23 +640,23 @@
       }
     }
 
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        walkForFollowedByFollowingUsers(item, found, visited);
-      }
-      return;
-    }
-
-    for (const child of Object.values(value)) {
+    const children = Array.isArray(value) ? value : Object.values(value);
+    for (const child of children) {
       if (child && typeof child === "object") {
-        walkForFollowedByFollowingUsers(child, found, visited);
+        extractFollowedBySubjects(child, visited, proofNodes, found);
       }
     }
   }
 
   function handleFollowedByFollowingPayload(payload) {
+    const proofNodes = new WeakSet();
+    // Fast path: no social-proof text anywhere → nothing to attribute.
+    if (!collectProofNodes(payload, new WeakSet(), proofNodes)) {
+      return;
+    }
+
     const found = new Set();
-    walkForFollowedByFollowingUsers(payload, found, new WeakSet());
+    extractFollowedBySubjects(payload, new WeakSet(), proofNodes, found);
 
     const handles = sanitizeHandles([...found]);
     if (!handles.length) {
@@ -739,71 +737,15 @@
     return null;
   }
 
-  function walkForTweetAuthors(value, found, visited) {
-    if (!value || typeof value !== "object") {
-      return;
-    }
-
-    if (visited.has(value)) {
-      return;
-    }
-
-    visited.add(value);
-
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        walkForTweetAuthors(item, found, visited);
-      }
-      return;
-    }
-
-    const author = tryExtractTweetAuthor(value);
-    if (author) {
-      found.set(author.tweetId, author);
-    }
-
-    for (const child of Object.values(value)) {
-      if (child && typeof child === "object") {
-        walkForTweetAuthors(child, found, visited);
-      }
-    }
-  }
-
-  function handleTweetAuthorsPayload(payload) {
-    const found = new Map();
-    walkForTweetAuthors(payload, found, new WeakSet());
-
-    if (!found.size) {
-      return;
-    }
-
-    const tweets = [];
-    for (const tweet of found.values()) {
-      const handle = sanitizeHandle(tweet.handle);
-      if (!handle) {
-        continue;
-      }
-
-      const tweetId = sanitizeText(tweet.tweetId);
-      if (!tweetId) {
-        continue;
-      }
-
-      tweets.push({
-        tweetId,
-        handle,
-        following: tweet.following === true,
-      });
-    }
-
-    if (!tweets.length) {
-      return;
-    }
-
-    publish({
-      type: "hux-tweet-authors",
-      tweets,
-    });
+  // Whether we need to parse this response body at all. Timeline payloads are
+  // large and frequent — skip the parse + walks entirely unless a feature that
+  // consumes them is enabled (AboutAccountQuery always needs its body).
+  function shouldParseBody(url) {
+    return (
+      url.includes("AboutAccountQuery") ||
+      wantFollowingData ||
+      wantFollowedByData
+    );
   }
 
   function inspectResponse(response, url) {
@@ -817,7 +759,7 @@
       publishRateLimitState(readRateLimitHeaders(response), response.status);
     }
 
-    if (!response.ok) {
+    if (!response.ok || !shouldParseBody(url)) {
       return;
     }
 
@@ -839,9 +781,13 @@
       handleAboutAccountPayload(payload, url);
     }
 
-    handleFollowingUsersPayload(payload);
-    handleFollowedByFollowingPayload(payload);
-    handleTweetAuthorsPayload(payload);
+    if (wantFollowingData) {
+      scanUsersAndTweets(payload);
+    }
+
+    if (wantFollowedByData) {
+      handleFollowedByFollowingPayload(payload);
+    }
   }
 
   originalFetch = window.fetch.bind(window);
@@ -865,6 +811,10 @@
     this.addEventListener("load", function huxXhrLoad() {
       const url = this._huxUrl;
       if (!url?.includes("/i/api/graphql/")) {
+        return;
+      }
+
+      if (!shouldParseBody(url)) {
         return;
       }
 
