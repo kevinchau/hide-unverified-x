@@ -190,6 +190,63 @@
       handle,
       rateLimited: extra.rateLimited === true,
       status: typeof extra.status === "number" ? extra.status : 0,
+      rateLimitReset: typeof extra.rateLimitReset === "number" ? extra.rateLimitReset : 0,
+      rateLimitRemaining:
+        typeof extra.rateLimitRemaining === "number"
+          ? extra.rateLimitRemaining
+          : null,
+      rateLimitLimit:
+        typeof extra.rateLimitLimit === "number" ? extra.rateLimitLimit : null,
+    });
+  }
+
+  /**
+   * X returns x-rate-limit-limit / remaining / reset on AboutAccountQuery.
+   * Example 429: limit=50, remaining=0, reset=<unix seconds>.
+   */
+  function readRateLimitHeaders(response) {
+    if (!response?.headers?.get) {
+      return null;
+    }
+
+    const limitRaw = response.headers.get("x-rate-limit-limit");
+    const remainingRaw = response.headers.get("x-rate-limit-remaining");
+    const resetRaw = response.headers.get("x-rate-limit-reset");
+
+    const limit = limitRaw != null ? Number(limitRaw) : NaN;
+    const remaining = remainingRaw != null ? Number(remainingRaw) : NaN;
+    const reset = resetRaw != null ? Number(resetRaw) : NaN;
+
+    if (
+      !Number.isFinite(limit) &&
+      !Number.isFinite(remaining) &&
+      !Number.isFinite(reset)
+    ) {
+      return null;
+    }
+
+    return {
+      limit: Number.isFinite(limit) ? limit : null,
+      remaining: Number.isFinite(remaining) ? remaining : null,
+      reset: Number.isFinite(reset) ? reset : null,
+    };
+  }
+
+  function publishRateLimitState(rate, httpStatus) {
+    if (!rate) {
+      return;
+    }
+
+    publish({
+      type: "hux-about-rate-limit",
+      rateLimitLimit: rate.limit,
+      rateLimitRemaining: rate.remaining,
+      rateLimitReset: rate.reset,
+      status: typeof httpStatus === "number" ? httpStatus : 0,
+      rateLimited:
+        httpStatus === 429 ||
+        rate.remaining === 0 ||
+        (rate.reset != null && rate.reset * 1000 > Date.now() && rate.remaining === 0),
     });
   }
 
@@ -257,10 +314,16 @@
         },
       });
 
+      const rate = readRateLimitHeaders(response);
+      publishRateLimitState(rate, response.status);
+
       if (!response.ok) {
         publishAboutAccountError(handle, {
           status: response.status,
-          rateLimited: response.status === 429,
+          rateLimited: response.status === 429 || rate?.remaining === 0,
+          rateLimitReset: rate?.reset ?? 0,
+          rateLimitRemaining: rate?.remaining,
+          rateLimitLimit: rate?.limit,
         });
         return;
       }
@@ -748,6 +811,16 @@
       return;
     }
 
+    // Always learn AboutAccountQuery budget from X's rate-limit headers
+    // (native About page and our own fetches share the same bucket).
+    if (url.includes("AboutAccountQuery")) {
+      publishRateLimitState(readRateLimitHeaders(response), response.status);
+    }
+
+    if (!response.ok) {
+      return;
+    }
+
     response
       .clone()
       .json()
@@ -816,4 +889,40 @@
 
     return originalSend.apply(this, args);
   };
+
+  // Tell the content script about SPA navigations (pushState / replaceState /
+  // popstate). Isolated-world scripts do not see the page's history calls.
+  let lastPublishedPath = location.pathname + location.search;
+  function publishLocationIfChanged() {
+    const next = location.pathname + location.search;
+    if (next === lastPublishedPath) {
+      return;
+    }
+
+    lastPublishedPath = next;
+    publish({
+      type: "hux-location",
+      pathname: location.pathname,
+      search: location.search || "",
+    });
+  }
+
+  const originalPushState = history.pushState.bind(history);
+  const originalReplaceState = history.replaceState.bind(history);
+
+  history.pushState = function huxPushState(...args) {
+    const result = originalPushState(...args);
+    queueMicrotask(publishLocationIfChanged);
+    return result;
+  };
+
+  history.replaceState = function huxReplaceState(...args) {
+    const result = originalReplaceState(...args);
+    queueMicrotask(publishLocationIfChanged);
+    return result;
+  };
+
+  window.addEventListener("popstate", () => {
+    queueMicrotask(publishLocationIfChanged);
+  });
 })();

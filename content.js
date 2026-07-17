@@ -148,6 +148,41 @@
     return null;
   }
 
+  /**
+   * Timeline order on conversation pages is more reliable via feed cells than
+   * a flat querySelectorAll(tweet) (quotes/nesting can scramble that list).
+   */
+  function getOrderedTimelineTweets() {
+    const column =
+      document.querySelector(SELECTORS.primaryColumn) || document;
+    const tweets = [];
+    const seen = new Set();
+
+    const cells = column.querySelectorAll(SELECTORS.feedCell);
+    if (cells.length) {
+      cells.forEach((cell) => {
+        for (const tweet of cell.querySelectorAll(SELECTORS.tweet)) {
+          // Skip quote-tweet nested articles.
+          if (tweet.parentElement?.closest(SELECTORS.tweet)) {
+            continue;
+          }
+          if (seen.has(tweet)) {
+            continue;
+          }
+          seen.add(tweet);
+          tweets.push(tweet);
+          break;
+        }
+      });
+    }
+
+    if (tweets.length) {
+      return tweets;
+    }
+
+    return [...document.querySelectorAll(SELECTORS.tweet)].filter(isTopLevelTweet);
+  }
+
   function rebuildConversationReplyCache() {
     conversationReplyTweets = null;
     if (!isStatusPage()) {
@@ -155,9 +190,7 @@
     }
 
     const pageStatusId = getStatusIdFromPath();
-    const tweets = [
-      ...document.querySelectorAll(SELECTORS.tweet),
-    ].filter(isTopLevelTweet);
+    const tweets = getOrderedTimelineTweets();
 
     if (!tweets.length) {
       return;
@@ -1009,6 +1042,7 @@
 
     actions.append(showOnceButton, alwaysShowButton);
     placeholder.append(label, actions);
+    placeholder.setAttribute("data-hux-theme", syncPageTheme());
 
     // Prefer inside the feed cell so X virtualization removes placeholder +
     // tweet together. Hiding only the article keeps the cell (and bar) visible.
@@ -1080,18 +1114,30 @@
       return null;
     }
 
+    // Prefetch About data as soon as we know the context needs it — before any
+    // filter short-circuit — so badges and country matching can fill in on the
+    // next pass (especially on reply threads with many blue-check accounts).
+    if (handle && isCountryFilterEnabled(context)) {
+      ensureAboutAccountLookup(handle, context, true);
+    }
+
+    // Country / region FIRST. Bought blue checks from blocked regions should
+    // still be filtered; verification is a second gate for everyone else.
+    if (
+      isCountryFilterEnabled(context) &&
+      getCountryFilterDecision(handle, context)
+    ) {
+      const entry = getAboutEntry(handle);
+      const accountText = countryMatcher?.formatAccountLabel(entry) ?? "";
+      return { reason: "country", handle, accountText };
+    }
+
     if (
       isVerificationFilterEnabled(context) &&
       isAnyBadgeEnabled() &&
       !isVerifiedScope(authorScope)
     ) {
       return { reason: "unverified", handle, accountText: "" };
-    }
-
-    if (isCountryFilterEnabled(context) && getCountryFilterDecision(handle, context)) {
-      const entry = getAboutEntry(handle);
-      const accountText = countryMatcher?.formatAccountLabel(entry) ?? "";
-      return { reason: "country", handle, accountText };
     }
 
     return null;
@@ -1157,12 +1203,18 @@
   }
 
   /**
-   * Resolve mount point left of Grok (or ···). Returns { parent, before }.
+   * Resolve mount point so the badge is always immediately left of Grok
+   * (then ···). Returns { parent, before }.
+   *
+   * Prefer the shared action cluster that already holds Grok + caret so the
+   * visual order is always: [name …] … [flag country] [Grok] [···].
    */
   function findLocationBadgeMount(tweet) {
-    // 1) Grok actions button (aria-label is typically "Grok actions").
+    let grokBtn = null;
+    let caretBtn = null;
+
     for (const el of tweet.querySelectorAll(
-      'button, a[role="button"], div[role="button"], [aria-label]'
+      'button, a[role="button"], div[role="button"], [aria-label], [data-testid="caret"]'
     )) {
       if (!isPrimaryTweetNode(el, tweet)) {
         continue;
@@ -1170,44 +1222,40 @@
 
       const label = (el.getAttribute("aria-label") || "").toLowerCase();
       const testId = (el.getAttribute("data-testid") || "").toLowerCase();
-      if (label.includes("grok") || testId.includes("grok")) {
-        const target =
+
+      if (!grokBtn && (label.includes("grok") || testId.includes("grok"))) {
+        grokBtn =
           el.closest('button, a[role="button"], div[role="button"]') || el;
-        if (target.parentElement) {
-          return { parent: target.parentElement, before: target };
-        }
-      }
-    }
-
-    // 2) ··· caret / more menu in the same header cluster.
-    for (const el of tweet.querySelectorAll(
-      '[data-testid="caret"], button[aria-haspopup="menu"]'
-    )) {
-      if (!isPrimaryTweetNode(el, tweet)) {
-        continue;
       }
 
-      const label = (el.getAttribute("aria-label") || "").toLowerCase();
-      const testId = el.getAttribute("data-testid") || "";
       if (
-        testId === "caret" ||
-        label.includes("more") ||
-        label.includes("post options") ||
-        label.includes("status options")
+        !caretBtn &&
+        (testId === "caret" ||
+          label.includes("more") ||
+          label.includes("post options") ||
+          label.includes("status options"))
       ) {
-        if (el.parentElement) {
-          return { parent: el.parentElement, before: el };
-        }
+        caretBtn =
+          el.closest('button, a[role="button"], div[role="button"]') || el;
       }
     }
 
-    // 3) Header row that contains User-Name and at least one action control.
+    // Same parent as Grok → insert immediately before Grok.
+    if (grokBtn?.parentElement) {
+      return { parent: grokBtn.parentElement, before: grokBtn };
+    }
+
+    if (caretBtn?.parentElement) {
+      return { parent: caretBtn.parentElement, before: caretBtn };
+    }
+
+    // Header row: place just before the action cluster (not inside User-Name).
     const userName = getPrimaryUserName(tweet);
     if (userName) {
       let row = userName.parentElement;
       for (let depth = 0; depth < 8 && row && row !== tweet; depth += 1) {
         if (row.childElementCount >= 2) {
-          const actions = [...row.children].filter((child) => {
+          const actionCluster = [...row.children].find((child) => {
             if (child.contains(userName)) {
               return false;
             }
@@ -1221,9 +1269,8 @@
             );
           });
 
-          if (actions.length) {
-            const before = actions[0];
-            return { parent: row, before };
+          if (actionCluster) {
+            return { parent: row, before: actionCluster };
           }
         }
         row = row.parentElement;
@@ -1322,16 +1369,19 @@
     }
 
     // Keep immediately left of Grok / action cluster (right side of header).
-    // That cluster is typically flex-end; long User-Name truncates on the left.
-    if (el.parentElement !== mount.parent || el.nextElementSibling !== mount.before) {
+    if (
+      el.parentElement !== mount.parent ||
+      el.nextElementSibling !== mount.before
+    ) {
       mount.parent.insertBefore(el, mount.before);
     }
 
-    // Nudge the action cluster not to shrink under a long name.
-    if (mount.parent && mount.parent instanceof HTMLElement) {
-      if (!mount.parent.dataset.huxLocCluster) {
-        mount.parent.dataset.huxLocCluster = "1";
-        mount.parent.style.flexShrink = "0";
+    // Action cluster must not shrink; name/handle truncate on the left instead.
+    if (mount.parent instanceof HTMLElement) {
+      mount.parent.style.flexShrink = "0";
+      // If badge sits in a group with Grok+caret, keep it the leftmost chip.
+      if (mount.before && mount.parent.contains(mount.before)) {
+        el.style.order = "-1";
       }
     }
   }
@@ -1341,12 +1391,20 @@
   }
 
   function processTweet(tweet) {
+    // 1) Context (reply vs forYou) must be known before filter/badge decisions.
     const context = getTweetContext(tweet);
     const primaryHandle = getPrimaryHandle(tweet);
+
+    // 2) Kick About lookups early for country-enabled contexts (viewport
+    //    authors first via priority queue). Badges read the same cache.
+    if (primaryHandle && isCountryFilterEnabled(context)) {
+      ensureAboutAccountLookup(primaryHandle, context, true);
+    }
+
+    // 3) Filter decision (country, then verification).
     const decision = getFilterDecision(tweet);
 
-    // Location badges never enqueue by themselves — they only render when
-    // about data is already cached (country filter / About page / prior visit).
+    // 4) Location badge only on posts that stay visible (or dimmed).
     const willHide = Boolean(decision) && settings.displayMode === "hide";
 
     const locationKey = willHide
@@ -1396,11 +1454,13 @@
     rebuildConversationReplyCache();
     cleanupOrphanPlaceholders(root);
 
-    root.querySelectorAll(SELECTORS.tweet).forEach((tweet) => {
-      if (!isTopLevelTweet(tweet)) {
-        return;
-      }
+    // Status/conversation pages: walk feed cells in order so replies under the
+    // focused post are classified even when X omits "Replying to".
+    const tweets = isStatusPage()
+      ? getOrderedTimelineTweets()
+      : [...root.querySelectorAll(SELECTORS.tweet)].filter(isTopLevelTweet);
 
+    tweets.forEach((tweet) => {
       processTweet(tweet);
     });
 
@@ -1447,8 +1507,62 @@
     return false;
   }
 
+  /**
+   * Detect X light/dark from the page (not only OS prefers-color-scheme).
+   * X can be light while the OS is dark and vice versa.
+   */
+  function detectPageTheme() {
+    try {
+      const root = document.documentElement;
+      const body = document.body;
+      const probe = body || root;
+      if (!probe) {
+        return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches
+          ? "dark"
+          : "light";
+      }
+
+      const bg = getComputedStyle(probe).backgroundColor || "";
+      const match = bg.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+      if (match) {
+        const r = Number(match[1]);
+        const g = Number(match[2]);
+        const b = Number(match[3]);
+        const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        return luma < 0.45 ? "dark" : "light";
+      }
+
+      const scheme = getComputedStyle(root).colorScheme || "";
+      if (scheme.includes("dark") && !scheme.includes("light")) {
+        return "dark";
+      }
+    } catch {
+      // fall through
+    }
+
+    return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches
+      ? "dark"
+      : "light";
+  }
+
+  function syncPageTheme() {
+    const theme = detectPageTheme();
+    const root = document.documentElement;
+    if (root.getAttribute("data-hux-theme") !== theme) {
+      root.setAttribute("data-hux-theme", theme);
+    }
+
+    document.querySelectorAll(`[${PLACEHOLDER_ATTR}]`).forEach((node) => {
+      if (node.getAttribute("data-hux-theme") !== theme) {
+        node.setAttribute("data-hux-theme", theme);
+      }
+    });
+
+    return theme;
+  }
+
   function startObserver() {
-    if (observer) {
+    if (observer || !document.body) {
       return;
     }
 
@@ -1476,6 +1590,17 @@
         }
       }
 
+      // Status pages stream replies after the main post — always re-check when
+      // something is added under the primary column.
+      if (!shouldProcess && isStatusPage()) {
+        for (const mutation of mutations) {
+          if (mutation.addedNodes?.length) {
+            shouldProcess = true;
+            break;
+          }
+        }
+      }
+
       if (shouldProcess) {
         scheduleProcess();
       }
@@ -1483,15 +1608,19 @@
       if (settings.whitelistFollowedByFollowing) {
         scheduleScanFollowedByProof();
       }
+
+      // Theme can flip without a full navigation (user toggles appearance).
+      syncPageTheme();
     });
 
     observer.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["aria-selected"],
+      attributeFilter: ["aria-selected", "style", "class"],
     });
 
+    syncPageTheme();
     scanFollowedByFollowingProof();
     processTweets();
   }
@@ -1499,19 +1628,35 @@
   function applySettings(nextSettings) {
     settings = normalizeStoredSettings(nextSettings);
     startObserver();
+    syncPageTheme();
     scanFollowedByFollowingProof();
     processTweets();
   }
 
   function loadSettings() {
+    // Run immediately with defaults so filtering works without opening the
+    // popup. Storage merges in when ready (Firefox temp add-ons can lag).
+    applySettings(settings);
+
     if (!storage) {
-      applySettings(DEFAULT_SETTINGS);
       return;
     }
 
-    storage.get(DEFAULT_SETTINGS, (result) => {
-      applySettings(result);
-    });
+    try {
+      storage.get(DEFAULT_SETTINGS, (result) => {
+        const err =
+          globalThis.chrome?.runtime?.lastError ||
+          globalThis.browser?.runtime?.lastError;
+        if (err) {
+          scheduleProcess();
+          return;
+        }
+
+        applySettings(result ?? DEFAULT_SETTINGS);
+      });
+    } catch {
+      scheduleProcess();
+    }
   }
 
   function sanitizeHandle(value) {
@@ -1636,6 +1781,41 @@
 
       aboutAccount?.markErrorFromInterceptor?.(handle, {
         rateLimited: event.data.rateLimited === true,
+        status:
+          typeof event.data.status === "number" ? event.data.status : 0,
+        rateLimitReset:
+          typeof event.data.rateLimitReset === "number"
+            ? event.data.rateLimitReset
+            : 0,
+        rateLimitRemaining:
+          typeof event.data.rateLimitRemaining === "number"
+            ? event.data.rateLimitRemaining
+            : null,
+        rateLimitLimit:
+          typeof event.data.rateLimitLimit === "number"
+            ? event.data.rateLimitLimit
+            : null,
+      });
+      return;
+    }
+
+    if (type === "hux-about-rate-limit") {
+      aboutAccount?.noteRateLimitFromInterceptor?.({
+        rateLimited: event.data.rateLimited === true,
+        status:
+          typeof event.data.status === "number" ? event.data.status : 0,
+        rateLimitReset:
+          typeof event.data.rateLimitReset === "number"
+            ? event.data.rateLimitReset
+            : 0,
+        rateLimitRemaining:
+          typeof event.data.rateLimitRemaining === "number"
+            ? event.data.rateLimitRemaining
+            : null,
+        rateLimitLimit:
+          typeof event.data.rateLimitLimit === "number"
+            ? event.data.rateLimitLimit
+            : null,
       });
       return;
     }
@@ -1661,6 +1841,12 @@
       if (handles.length) {
         followingCache?.addFollowedByFollowing(handles);
       }
+      return;
+    }
+
+    // MAIN-world history hook — SPA navigations (e.g. open a post → replies).
+    if (type === "hux-location") {
+      handleLocationChange();
     }
   }
 
@@ -1676,7 +1862,8 @@
 
   if (storage?.onChanged) {
     storage.onChanged.addListener((changes, area) => {
-      if (area !== "sync") {
+      // Firefox may surface settings under sync or local depending on browser.
+      if (area !== "sync" && area !== "local") {
         return;
       }
 
@@ -1710,20 +1897,44 @@
 
   let initialized = false;
 
+  /**
+   * SPA route change (home → /status/… especially): drop stale fingerprints so
+   * tweets reclassify as replies under the focused post.
+   */
+  function handleLocationChange() {
+    const nextPath = location.pathname;
+    if (nextPath === lastPathname) {
+      return;
+    }
+
+    lastPathname = nextPath;
+    hiddenCount = 0;
+    conversationReplyTweets = null;
+    syncHiddenCount();
+    syncPageTheme();
+
+    document.querySelectorAll(`[${FINGERPRINT_ATTR}]`).forEach((el) => {
+      el.removeAttribute(FINGERPRINT_ATTR);
+    });
+
+    // Ensure observer is up even if storage was slow on first paint.
+    startObserver();
+    scheduleProcess();
+    // Conversation tweets often stream in after the URL flips.
+    setTimeout(() => scheduleProcess(), 100);
+    setTimeout(() => scheduleProcess(), 500);
+    setTimeout(() => scheduleProcess(), 1500);
+  }
+
   function startPathWatcher() {
     lastPathname = location.pathname;
 
+    // Backup if MAIN-world history hooks miss a navigation.
     setInterval(() => {
-      if (location.pathname === lastPathname) {
-        return;
+      if (location.pathname !== lastPathname) {
+        handleLocationChange();
       }
-
-      lastPathname = location.pathname;
-      // SPA navigation: reset count and reprocess the new timeline.
-      hiddenCount = 0;
-      syncHiddenCount();
-      scheduleProcess();
-    }, 1000);
+    }, 300);
   }
 
   function init() {
@@ -1738,11 +1949,33 @@
 
     initialized = true;
     window.addEventListener("message", handlePageMessage);
+    // Back/forward cache and SPA resumes should re-filter without a popup click.
+    window.addEventListener("pageshow", () => {
+      syncPageTheme();
+      if (location.pathname !== lastPathname) {
+        handleLocationChange();
+      } else {
+        scheduleProcess();
+      }
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        syncPageTheme();
+        scheduleProcess();
+      }
+    });
     signalReady();
     aboutAccount?.init(() => scheduleProcess());
     followingCache?.setOnUpdate(() => scheduleProcess());
     startPathWatcher();
     loadSettings();
+
+    // If we landed directly on a status URL, re-run after replies hydrate.
+    if (isStatusPage()) {
+      setTimeout(() => scheduleProcess(), 200);
+      setTimeout(() => scheduleProcess(), 800);
+      setTimeout(() => scheduleProcess(), 2000);
+    }
   }
 
   init();

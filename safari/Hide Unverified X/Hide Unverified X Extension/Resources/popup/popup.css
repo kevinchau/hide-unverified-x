@@ -66,6 +66,18 @@ header p {
   color: #71767b;
 }
 
+.rate-limit-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #f4212e;
+  border-radius: 12px;
+  background: rgba(244, 33, 46, 0.08);
+  color: #f91880;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
 .toggle-group {
   display: flex;
   flex-direction: column;

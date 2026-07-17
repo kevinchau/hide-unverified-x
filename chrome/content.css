@@ -12,20 +12,25 @@
   opacity: 0.85 !important;
 }
 
+/*
+ * Placeholder cards follow X / page theme (not OS-only).
+ * html[data-hux-theme] is set by content.js from body background luminance.
+ * Fallback: prefers-color-scheme when theme not detected yet.
+ */
 .hux-placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid rgb(47, 51, 54);
-  background: rgb(0, 0, 0);
+  border-bottom: 1px solid rgb(239, 243, 244);
+  background: rgb(255, 255, 255);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
 }
 
 .hux-placeholder-label {
-  color: rgb(113, 118, 123);
+  color: rgb(83, 100, 113);
   font-size: 13px;
   line-height: 1.3;
 }
@@ -69,7 +74,39 @@
 }
 
 .hux-placeholder-button-secondary {
+  color: rgb(15, 20, 25);
+}
+
+/* Dark X theme (and OS dark fallback before detection runs). */
+html[data-hux-theme="dark"] .hux-placeholder,
+.hux-placeholder[data-hux-theme="dark"] {
+  border-bottom-color: rgb(47, 51, 54);
+  background: rgb(0, 0, 0);
+}
+
+html[data-hux-theme="dark"] .hux-placeholder-label,
+.hux-placeholder[data-hux-theme="dark"] .hux-placeholder-label {
+  color: rgb(113, 118, 123);
+}
+
+html[data-hux-theme="dark"] .hux-placeholder-button-secondary,
+.hux-placeholder[data-hux-theme="dark"] .hux-placeholder-button-secondary {
   color: rgb(231, 233, 234);
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-hux-theme="light"]) .hux-placeholder {
+    border-bottom-color: rgb(47, 51, 54);
+    background: rgb(0, 0, 0);
+  }
+
+  html:not([data-hux-theme="light"]) .hux-placeholder-label {
+    color: rgb(113, 118, 123);
+  }
+
+  html:not([data-hux-theme="light"]) .hux-placeholder-button-secondary {
+    color: rgb(231, 233, 234);
+  }
 }
 
 /*
@@ -87,7 +124,7 @@
   margin-inline-end: 4px;
   padding: 1px 0;
   overflow: hidden;
-  color: rgb(113, 118, 123);
+  color: rgb(83, 100, 113);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
   font-size: 12px;
@@ -114,7 +151,10 @@
   white-space: nowrap;
 }
 
-/* Narrow columns: flag only (name is still in title tooltip). */
+html[data-hux-theme="dark"] .hux-location-badge {
+  color: rgb(113, 118, 123);
+}
+
 @media (max-width: 700px) {
   .hux-location-badge {
     max-width: 1.5rem;
@@ -125,8 +165,8 @@
   }
 }
 
-@media (prefers-color-scheme: light) {
-  .hux-location-badge {
-    color: rgb(83, 100, 113);
+@media (prefers-color-scheme: dark) {
+  html:not([data-hux-theme="light"]) .hux-location-badge {
+    color: rgb(113, 118, 123);
   }
 }

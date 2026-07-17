@@ -48,6 +48,27 @@
           “Nigeria App Store”). Uses your logged-in session — no developer API
           keys. Lookups are cached and queued slowly to reduce rate limits.
         </p>
+        <div
+          class="rate-limit-banner"
+          id="aboutRateLimitBanner"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="rate-limit-copy">
+            <span class="rate-limit-title">About lookup rate limit</span>
+            <span class="rate-limit-detail" id="aboutRateLimitDetail"
+              >Checking…</span
+            >
+          </div>
+          <button
+            type="button"
+            class="button button-secondary compact"
+            id="clearAboutRateLimit"
+            hidden
+          >
+            Clear pause
+          </button>
+        </div>
         <label class="field" for="countryMode">
           <span class="field-label">Filter mode</span>
           <select id="countryMode" class="select">

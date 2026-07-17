@@ -10,7 +10,7 @@
     badgeGovernment: false,
     retweetAuthor: "original",
     quoteAuthor: "quoter",
-    displayMode: "hide",
+    displayMode: "dim",
     showPlaceholders: true,
     whitelist: [],
     whitelistFollowing: false,
@@ -108,7 +108,8 @@
       retweetAuthor:
         result.retweetAuthor === "retweeter" ? "retweeter" : "original",
       quoteAuthor: result.quoteAuthor === "quoted" ? "quoted" : "quoter",
-      displayMode: result.displayMode === "dim" ? "dim" : "hide",
+      // Default is dim; only an explicit "hide" opts into remove-from-feed.
+      displayMode: result.displayMode === "hide" ? "hide" : "dim",
       showPlaceholders:
         typeof result.showPlaceholders === "boolean"
           ? result.showPlaceholders

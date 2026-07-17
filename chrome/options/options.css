@@ -150,3 +150,49 @@ header p {
 code {
   color: #e7e9ea;
 }
+
+.rate-limit-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #2f3336;
+  border-radius: 12px;
+  background: #16181c;
+}
+
+.rate-limit-banner.is-limited {
+  border-color: #f4212e;
+  background: rgba(244, 33, 46, 0.08);
+}
+
+.rate-limit-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rate-limit-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e7e9ea;
+}
+
+.rate-limit-detail {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #71767b;
+}
+
+.rate-limit-banner.is-limited .rate-limit-detail {
+  color: #f91880;
+}
+
+.button.compact {
+  padding: 6px 12px;
+  font-size: 12px;
+  flex-shrink: 0;
+}

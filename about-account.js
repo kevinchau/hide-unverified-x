@@ -16,8 +16,10 @@
   const MAX_CACHE_ENTRIES = 5000;
   const EMPTY_RETRY_MS = 60 * 60 * 1000;
   const ERROR_RETRY_MS = 2 * 60_000;
-  /** Stop all About GraphQL for this long after HTTP 429 (persisted). */
+  /** Fallback pause when X 429s without a usable x-rate-limit-reset header. */
   const RATE_LIMIT_BACKOFF_MS = 30 * 60_000;
+  /** Small buffer after X's reset timestamp so the window has flipped. */
+  const RATE_LIMIT_RESET_BUFFER_MS = 3_000;
   const REQUEST_TIMEOUT_MS = 12_000;
 
   let queryId = FALLBACK_QUERY_ID;
@@ -110,6 +112,39 @@
     rateLimitedUntil = Math.max(rateLimitedUntil, Date.now() + durationMs);
     clearQueue();
     persistRateLimitNow();
+  }
+
+  /**
+   * Honor X's AboutAccountQuery headers:
+   *   x-rate-limit-limit: 50
+   *   x-rate-limit-remaining: 0
+   *   x-rate-limit-reset: <unix seconds>
+   */
+  function applyRateLimitFromHeaders(options = {}) {
+    const resetUnix = Number(options.rateLimitReset) || 0;
+    const remaining = options.rateLimitRemaining;
+    const status = options.status;
+    const forced =
+      options.rateLimited === true || status === 429 || remaining === 0;
+
+    if (!forced && remaining != null && remaining > 0) {
+      return;
+    }
+
+    if (resetUnix > 1_000_000_000) {
+      // Prefer X's exact reset clock over a fixed 30m guess.
+      const until = resetUnix * 1000 + RATE_LIMIT_RESET_BUFFER_MS;
+      if (until > Date.now()) {
+        rateLimitedUntil = Math.max(rateLimitedUntil, until);
+        clearQueue();
+        persistRateLimitNow();
+        return;
+      }
+    }
+
+    if (forced) {
+      applyRateLimit(RATE_LIMIT_BACKOFF_MS);
+    }
   }
 
   function notifyUpdate() {
@@ -400,13 +435,21 @@
       return;
     }
 
-    if (options.rateLimited) {
-      applyRateLimit(RATE_LIMIT_BACKOFF_MS);
+    if (
+      options.rateLimited ||
+      options.status === 429 ||
+      options.rateLimitRemaining === 0
+    ) {
+      applyRateLimitFromHeaders(options);
     }
 
     const key = handle.toLowerCase();
     removeQueuedHandle(key);
     setEntry(key, errorEntry());
+  }
+
+  function noteRateLimitFromInterceptor(options = {}) {
+    applyRateLimitFromHeaders(options);
   }
 
   function init(callback) {
@@ -456,6 +499,7 @@
     enqueue,
     upsertFromInterceptor,
     markErrorFromInterceptor,
+    noteRateLimitFromInterceptor,
     /** Emergency stop — e.g. after a 429 storm. */
     pauseLookups: applyRateLimit,
     isRateLimited,

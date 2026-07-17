@@ -4,6 +4,24 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.7.10] — 2026-07-17
+
+### Added
+- **Location badge** refinements — flag + country left of Grok; cache-backed; ellipsis / flag-only when space is tight
+- **About rate-limit status** — popup and Advanced settings show 429 pause with reset time + live countdown; Advanced settings can clear the pause
+
+### Changed
+- **Default display mode is Dim** (Hide remains available); filtering starts immediately with defaults so the popup does not need to be opened first
+- **Country filter before verification** — blue-check accounts from blocked regions are still filtered
+
+### Fixed
+- **About rate limits** — honor X `x-rate-limit-limit` / `remaining` / `reset` headers on AboutAccountQuery (pause until server reset)
+- **About lookups** — MAIN-world session fetches; empty responses clear pending; persisted rate-limit pause
+- **Placeholder light/dark** — follow X page theme instead of hard-coded dark bars on light mode
+- **Placeholder black-bar glitch** — placeholders live inside feed cells; orphan bars cleaned up
+- **Auto-run** — defaults apply before storage returns; re-process on `pageshow` / tab visible; SPA `/status/…` reclassifies replies without opening the popup
+- **Filter / About order** — About lookups start before verification short-circuits; location badge mounts immediately left of Grok
+
 ## [1.7.9] — 2026-07-17
 
 ### Added
