@@ -122,7 +122,10 @@ html[data-hux-theme="dark"] .hux-placeholder-button-secondary,
   flex: 0 0 auto;
   max-width: 6.5rem;
   margin-inline-end: 4px;
-  padding: 1px 0;
+  padding: 1px 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
   overflow: hidden;
   color: rgb(83, 100, 113);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
@@ -132,9 +135,23 @@ html[data-hux-theme="dark"] .hux-placeholder-button-secondary,
   line-height: 1.2;
   letter-spacing: 0.01em;
   white-space: nowrap;
-  pointer-events: none;
+  cursor: pointer;
   user-select: none;
   z-index: 1;
+}
+
+.hux-location-badge:hover {
+  background: rgba(29, 155, 240, 0.12);
+  color: rgb(29, 155, 240);
+}
+
+.hux-location-badge:focus {
+  outline: none;
+}
+
+.hux-location-badge:focus-visible {
+  outline: 2px solid rgb(29, 155, 240);
+  outline-offset: 1px;
 }
 
 .hux-location-badge-flag {

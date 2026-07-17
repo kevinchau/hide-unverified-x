@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.7.12] — 2026-07-17
+
+### Added
+- **Encounter frequency + location trust** — per-handle sighting stats; same cached location on **3** spaced sightings (~15 min) marks **trusted** and **skips further About API** (country filter still uses cache)
+- **Click location badge to refresh** — clears that handle from cache/trust so the next pass can live-check again
+
+### Changed
+- **About cache** — capacity **10 000**; eviction prefers high encounter frequency, recency, and trusted accounts
+
 ## [1.7.11] — 2026-07-17
 
 Same as 1.7.10 plus final reply-thread filter order and rate-limit UI polish (Mozilla re-sign).

@@ -752,11 +752,12 @@
 
     const entry = getAboutEntry(handle);
     // Fail open on lookup errors — do not hide when about-account fetch failed.
+    // Trusted only skips live About API (uses cache); country filter still runs.
     if (entry?.status === "error") {
       return false;
     }
 
-    if (!entry || entry.status === "pending") {
+    if (!entry || entry.status === "pending" || entry.status === "unknown") {
       return settings.countryUnknown === "hide";
     }
 
@@ -1169,7 +1170,43 @@
     }
 
     const entry = getAboutEntry(handle);
-    return countryMatcher?.locationBadgeForAccount(entry) ?? null;
+    const badge = countryMatcher?.locationBadgeForAccount(entry) ?? null;
+    if (!badge) {
+      return null;
+    }
+
+    const clickHint = "Click to clear cache and refresh";
+    // Trusted = stable cached location; no further live About checks until cleared.
+    if (entry?.trusted) {
+      return {
+        ...badge,
+        title: `${badge.title || badge.display} · Cached (trusted, no live check). ${clickHint}`,
+      };
+    }
+
+    return {
+      ...badge,
+      title: `${badge.title || badge.display}. ${clickHint}`,
+    };
+  }
+
+  function refreshLocationFromBadge(handle, tweet) {
+    if (!handle) {
+      return;
+    }
+
+    aboutAccount?.remove?.(handle);
+    removeLocationBadge(tweet);
+
+    // Drop fingerprint so the next pass re-evaluates filter + badge.
+    tweet.removeAttribute(FINGERPRINT_ATTR);
+
+    const context = getTweetContext(tweet);
+    if (isCountryFilterEnabled(context)) {
+      ensureAboutAccountLookup(handle, context, true);
+    }
+
+    scheduleProcess();
   }
 
   function locationFingerprintKey(handle) {
@@ -1337,10 +1374,19 @@
     }
 
     if (!el) {
-      el = document.createElement("span");
+      el = document.createElement("button");
+      el.type = "button";
       el.setAttribute(LOCATION_BADGE_ATTR, "true");
       el.className = "hux-location-badge";
+      el.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const cachedHandle = el.getAttribute("data-hux-loc-handle") || handle;
+        refreshLocationFromBadge(cachedHandle, tweet);
+      });
     }
+
+    el.setAttribute("data-hux-loc-handle", handle || "");
 
     const fp = badge.display;
     if (el.getAttribute(LOCATION_BADGE_FP_ATTR) !== fp) {
@@ -1364,8 +1410,12 @@
         el.append(textEl);
       }
 
-      el.title = badge.title || badge.display;
-      el.setAttribute("aria-label", badge.title || badge.display);
+      const label = badge.title || badge.display;
+      el.title = label;
+      el.setAttribute(
+        "aria-label",
+        `${badge.display || "Location"}. Click to clear cache and refresh`
+      );
     }
 
     // Keep immediately left of Grok / action cluster (right side of header).
@@ -1394,6 +1444,11 @@
     // 1) Context (reply vs forYou) must be known before filter/badge decisions.
     const context = getTweetContext(tweet);
     const primaryHandle = getPrimaryHandle(tweet);
+
+    // Track how often we see this author (cache retention + trust path).
+    if (primaryHandle) {
+      aboutAccount?.recordEncounter?.(primaryHandle);
+    }
 
     // 2) Kick About lookups early for country-enabled contexts (viewport
     //    authors first via priority queue). Badges read the same cache.
