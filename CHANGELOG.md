@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.7.11] — 2026-07-17
+
+Same as 1.7.10 plus final reply-thread filter order and rate-limit UI polish (Mozilla re-sign).
+
 ## [1.7.10] — 2026-07-17
 
 ### Added

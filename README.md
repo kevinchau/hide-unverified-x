@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kevinchau/hide-unverified-x/releases/latest"><img src="https://img.shields.io/badge/version-1.7.10-1d9bf0.svg" alt="Version 1.7.10" /></a>
+  <a href="https://github.com/kevinchau/hide-unverified-x/releases/latest"><img src="https://img.shields.io/badge/version-1.7.11-1d9bf0.svg" alt="Version 1.7.11" /></a>
   <img src="https://img.shields.io/badge/Chrome-supported-4285F4?logo=googlechrome&logoColor=white" alt="Chrome" />
   <img src="https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white" alt="Firefox" />
   <img src="https://img.shields.io/badge/Safari-supported-006CFF?logo=safari&logoColor=white" alt="Safari" />
@@ -54,11 +54,11 @@ Hide or dim posts on [X](https://x.com) that lack the verification badges you ca
 
 ### Firefox
 
-Click **Install for Firefox** above, or [download the signed add-on from the latest release](https://github.com/kevinchau/hide-unverified-x/releases/latest) (`hide-unverified-x-1.7.10.xpi`).
+Click **Install for Firefox** above, or [download the signed add-on from the latest release](https://github.com/kevinchau/hide-unverified-x/releases/latest) (`hide-unverified-x-1.7.11.xpi`).
 
 1. Open the link in **Firefox**.
 2. Confirm the install prompt if one appears.
-3. If Firefox only downloads the file: open **Add-ons and themes** → gear icon → **Install Add-on From File…** → select `hide-unverified-x-1.7.10.xpi`.
+3. If Firefox only downloads the file: open **Add-ons and themes** → gear icon → **Install Add-on From File…** → select `hide-unverified-x-1.7.11.xpi`.
 
 ### Chrome
 
