@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.7.13] — 2026-07-17
+
+### Fixed
+- **Location badge click** — capture-phase click handling so X does not steal the event; always re-queues a live About lookup after clear
+- **Location badge style** — quiet text again (no gray pill border); click-to-refresh kept
+
 ## [1.7.12] — 2026-07-17
 
 ### Added

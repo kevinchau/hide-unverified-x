@@ -115,6 +115,7 @@ html[data-hux-theme="dark"] .hux-placeholder-button-secondary,
  * instead of painting over Grok. Country text ellipsizes; full label is in
  * title / aria-label.
  */
+/* Quiet text chip (not a gray pill). Still a <button> for click-to-refresh. */
 .hux-location-badge {
   display: inline-flex;
   align-items: center;
@@ -122,10 +123,13 @@ html[data-hux-theme="dark"] .hux-placeholder-button-secondary,
   flex: 0 0 auto;
   max-width: 6.5rem;
   margin-inline-end: 4px;
-  padding: 1px 4px;
-  border: none;
-  border-radius: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   background: transparent;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
   overflow: hidden;
   color: rgb(83, 100, 113);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
@@ -137,12 +141,15 @@ html[data-hux-theme="dark"] .hux-placeholder-button-secondary,
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  z-index: 1;
+  pointer-events: auto;
+  position: relative;
+  z-index: 5;
 }
 
 .hux-location-badge:hover {
-  background: rgba(29, 155, 240, 0.12);
   color: rgb(29, 155, 240);
+  text-decoration: underline;
+  background: transparent;
 }
 
 .hux-location-badge:focus {
@@ -151,7 +158,8 @@ html[data-hux-theme="dark"] .hux-placeholder-button-secondary,
 
 .hux-location-badge:focus-visible {
   outline: 2px solid rgb(29, 155, 240);
-  outline-offset: 1px;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .hux-location-badge-flag {

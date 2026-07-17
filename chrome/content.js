@@ -1196,17 +1196,49 @@
     }
 
     aboutAccount?.remove?.(handle);
-    removeLocationBadge(tweet);
-
-    // Drop fingerprint so the next pass re-evaluates filter + badge.
-    tweet.removeAttribute(FINGERPRINT_ATTR);
-
-    const context = getTweetContext(tweet);
-    if (isCountryFilterEnabled(context)) {
-      ensureAboutAccountLookup(handle, context, true);
+    if (tweet) {
+      removeLocationBadge(tweet);
+      tweet.removeAttribute(FINGERPRINT_ATTR);
     }
 
+    // User explicitly asked to refresh — always re-queue (bypass country-filter
+    // gate that normally limits About lookups).
+    aboutAccount?.enqueue?.(handle, { priority: true });
     scheduleProcess();
+  }
+
+  let lastLocationBadgeActivateAt = 0;
+
+  /**
+   * X attaches capture listeners on the article that navigate away before
+   * bubble-phase handlers on our badge run. Handle activation in capture on
+   * document so the click always reaches us.
+   */
+  function onLocationBadgeActivate(event) {
+    const el = event.target?.closest?.(`[${LOCATION_BADGE_ATTR}]`);
+    if (!el || !document.contains(el)) {
+      return;
+    }
+
+    // Only primary button / touch.
+    if (typeof event.button === "number" && event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    // pointerdown + click both fire; only act once.
+    const now = Date.now();
+    if (now - lastLocationBadgeActivateAt < 400) {
+      return;
+    }
+    lastLocationBadgeActivateAt = now;
+
+    const handle = el.getAttribute("data-hux-loc-handle") || "";
+    const tweet = el.closest(SELECTORS.tweet);
+    refreshLocationFromBadge(handle, tweet);
   }
 
   function locationFingerprintKey(handle) {
@@ -1378,12 +1410,7 @@
       el.type = "button";
       el.setAttribute(LOCATION_BADGE_ATTR, "true");
       el.className = "hux-location-badge";
-      el.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const cachedHandle = el.getAttribute("data-hux-loc-handle") || handle;
-        refreshLocationFromBadge(cachedHandle, tweet);
-      });
+      // Clicks are handled via document capture (see onLocationBadgeActivate).
     }
 
     el.setAttribute("data-hux-loc-handle", handle || "");
@@ -2004,6 +2031,9 @@
 
     initialized = true;
     window.addEventListener("message", handlePageMessage);
+    // Capture phase so X's article navigation does not eat the badge click.
+    document.addEventListener("pointerdown", onLocationBadgeActivate, true);
+    document.addEventListener("click", onLocationBadgeActivate, true);
     // Back/forward cache and SPA resumes should re-filter without a popup click.
     window.addEventListener("pageshow", () => {
       syncPageTheme();
