@@ -3,9 +3,9 @@
     "{b4e8a1c2-3f5d-4e7a-9b0c-1d2e3f4a5b6c}": {
       "updates": [
         {
-          "version": "1.7.8",
-          "update_link": "https://github.com/kevinchau/hide-unverified-x/releases/download/v1.7.8/hide-unverified-x-1.7.8.xpi",
-          "update_hash": "sha256:90eae4bc49910142f2702a1e56dabe5795deff571176d35dd14a3f1e0cf43475"
+          "version": "1.7.11",
+          "update_link": "https://github.com/kevinchau/hide-unverified-x/releases/download/v1.7.11/hide-unverified-x-1.7.11.xpi",
+          "update_hash": "sha256:5a61ad77b2bec8911885b3d692daca0c566a155cfd94c47098bab56b66dd865f"
         }
       ]
     }
